@@ -1,11 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { signup, login } = require('../controllers/authController');
+const { signup, login, updateProfile, deleteAccount } = require('../controllers/authController');
 
-// POST /api/auth/signup
+// Import the middleware to protect the update and delete routes
+const verifyToken = require('../middleware/authMiddleware');
+
+// Public Routes (No token needed)
 router.post('/signup', signup);
-
-// POST /api/auth/login
 router.post('/login', login);
+
+// Protected Routes (Token required in headers)
+// PUT /api/auth/update
+router.put('/update', verifyToken, updateProfile);
+
+// DELETE /api/auth/delete
+router.delete('/delete', verifyToken, deleteAccount);
 
 module.exports = router;

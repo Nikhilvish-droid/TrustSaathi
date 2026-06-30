@@ -106,4 +106,60 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { signup, login };
+// 3. UPDATE USER PROFILE
+const updateProfile = async (req, res) => {
+  // Grab the user ID securely from the decoded JWT token
+  const userId = req.user.userId; 
+  const { user_name, email } = req.body;
+
+  if (!user_name || !email) {
+    return res.status(400).json({ error: 'Please provide both user_name and email to update.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE users 
+       SET name = $1, email = $2 
+       WHERE id = $3 
+       RETURNING id, name, email, role`,
+      [user_name, email, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.status(200).json({
+      message: 'Profile updated successfully!',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Update Profile Error:', error);
+    res.status(500).json({ error: 'Failed to update profile. Email might already be in use.' });
+  }
+};
+
+// 4. DELETE USER ACCOUNT
+const deleteAccount = async (req, res) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.status(200).json({
+      message: 'Your account has been successfully deleted.'
+    });
+  } catch (error) {
+    console.error('Delete Account Error:', error);
+    res.status(500).json({ error: 'Failed to delete account.' });
+  }
+};
+
+module.exports = { signup, login, updateProfile, deleteAccount };
