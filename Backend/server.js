@@ -63,13 +63,11 @@ app.use((err, req, res, next) => {
 });
 
 
-// Only run app.listen when you are testing locally on your machine
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Local server running on port ${PORT}`);
-  });
-}
+// Change the bottom of server.js to this:
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running and listening on port ${PORT}`);
+});
 
-// Crucial step for Vercel: Export the app instance
+// You can keep this line here, it won't hurt anything on Render
 module.exports = app;
