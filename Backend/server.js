@@ -64,10 +64,12 @@ app.use((err, req, res, next) => {
 
 
 // Change the bottom of server.js to this:
-const PORT = process.env.PORT || 5000;
+// --- START THE SERVER ---
+
+// Render will automatically pass the correct port through your top declaration
 app.listen(PORT, () => {
   console.log(`Server is running and listening on port ${PORT}`);
 });
 
-// You can keep this line here, it won't hurt anything on Render
+// Crucial step for Vercel/Render compatibility
 module.exports = app;
