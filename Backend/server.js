@@ -7,6 +7,7 @@ require('dotenv').config();
 const aiRoutes = require('./routes/aiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const donationRoutes = require('./routes/donationRoutes');
+const { testConnection } = require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -66,10 +67,17 @@ app.use((err, req, res, next) => {
 // Change the bottom of server.js to this:
 // --- START THE SERVER ---
 
-// Render will automatically pass the correct port through your top declaration
-app.listen(PORT, () => {
-  console.log(`Server is running and listening on port ${PORT}`);
-});
+// Verify database connectivity before accepting requests
+testConnection()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server is running and listening on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Server startup aborted:', err.message);
+    process.exit(1);
+  });
 
 // Crucial step for Vercel/Render compatibility
 module.exports = app;

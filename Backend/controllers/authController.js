@@ -132,11 +132,16 @@ const login = async (req, res) => {
 
 // 3. UPDATE USER PROFILE
 const updateProfile = async (req, res) => {
-  const userId = req.user.userId; 
-  const { user_name, email } = req.body;
+  const userId = req.user.userId;
+  const organizationId = req.user.organizationId;
+  const { organization_name, reg_number, user_name, email, password } = req.body;
 
-  if (!user_name || !email) {
-    return res.status(400).json({ error: 'Please provide both user_name and email to update.' });
+  if (!organization_name || !user_name || !email) {
+    return res.status(400).json({ error: 'Please provide organization_name, user_name, and email.' });
+  }
+
+  if (!organizationId) {
+    return res.status(400).json({ error: 'No organization linked to this account. Please complete your profile first.' });
   }
 
   const normalizedEmail = email.toLowerCase().trim();
@@ -145,36 +150,80 @@ const updateProfile = async (req, res) => {
     return res.status(400).json({ error: 'Please provide a valid email address.' });
   }
 
+  if (password && password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  const client = await pool.connect();
+
   try {
-    // Prevent user from changing their email to one that belongs to someone else
-    const emailCheck = await pool.query(
-      'SELECT id FROM users WHERE email = $1 AND id != $2', 
+    const emailCheck = await client.query(
+      'SELECT id FROM users WHERE email = $1 AND id != $2',
       [normalizedEmail, userId]
     );
-    
+
     if (emailCheck.rows.length > 0) {
       return res.status(400).json({ error: 'That email address is already in use.' });
     }
 
-    const result = await pool.query(
-      `UPDATE users 
-       SET name = $1, email = $2 
+    await client.query('BEGIN');
+
+    const orgResult = await client.query(
+      `UPDATE organizations 
+       SET name = $1, reg_number = $2 
        WHERE id = $3 
-       RETURNING id, name, email, role`,
-      [user_name.trim(), normalizedEmail, userId]
+       RETURNING id, name, reg_number`,
+      [organization_name.trim(), reg_number ? reg_number.trim() : null, organizationId]
     );
 
-    if (result.rows.length === 0) {
+    if (orgResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Organization not found.' });
+    }
+
+    let userResult;
+    if (password) {
+      const password_hash = await bcrypt.hash(password, 12);
+      userResult = await client.query(
+        `UPDATE users 
+         SET name = $1, email = $2, password_hash = $3 
+         WHERE id = $4 
+         RETURNING id, name, email, role, organization_id`,
+        [user_name.trim(), normalizedEmail, password_hash, userId]
+      );
+    } else {
+      userResult = await client.query(
+        `UPDATE users 
+         SET name = $1, email = $2 
+         WHERE id = $3 
+         RETURNING id, name, email, role, organization_id`,
+        [user_name.trim(), normalizedEmail, userId]
+      );
+    }
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'User not found.' });
     }
 
+    await client.query('COMMIT');
+
+    const organization = orgResult.rows[0];
+
     res.status(200).json({
       message: 'Profile updated successfully!',
-      user: result.rows[0]
+      user: {
+        ...userResult.rows[0],
+        organization_name: organization.name,
+        reg_number: organization.reg_number
+      }
     });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Update Profile Error:', error);
     res.status(500).json({ error: 'Failed to update profile.' });
+  } finally {
+    client.release();
   }
 };
 
