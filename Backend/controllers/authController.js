@@ -1,0 +1,392 @@
+const pool = require('../config/db');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+// Helper Regex for basic email validation
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// 1. SIGNUP CONTROLLER
+const signup = async (req, res) => {
+  const { organization_name, reg_number, user_name, email, password } = req.body;
+
+  if (!organization_name || !user_name || !email || !password) {
+    return res.status(400).json({ error: 'Please provide all required fields.' });
+  }
+
+  // Sanitize and validate inputs
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  if (!emailRegex.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'Please provide a valid email address.' });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    // Check if the email already exists
+    const userCheck = await client.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
+    if (userCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'Email is already registered. Please log in.' });
+    }
+
+    await client.query('BEGIN'); // Start Transaction
+
+    // Step A: Create the Organization
+    const orgResult = await client.query(
+      `INSERT INTO organizations (name, reg_number) VALUES ($1, $2) RETURNING id`,
+      [organization_name.trim(), reg_number ? reg_number.trim() : null]
+    );
+    const orgId = orgResult.rows[0].id;
+
+    // Step B: Hash the password
+    const saltRounds = 12; // Increased from 10 to 12 for modern security standards
+    const password_hash = await bcrypt.hash(password, saltRounds);
+
+    // Step C: Create the User
+    const userResult = await client.query(
+      `INSERT INTO users (organization_id, name, email, password_hash, role) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role`,
+      [orgId, user_name.trim(), normalizedEmail, password_hash, 'admin']
+    );
+
+    await client.query('COMMIT'); // Save changes
+
+    res.status(201).json({
+      message: 'Account created successfully!',
+      user: userResult.rows[0]
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Signup Error:', error);
+    res.status(500).json({ error: 'Failed to create account. Please try again later.' });
+  } finally {
+    client.release();
+  }
+};
+
+// 2. LOGIN CONTROLLER
+const login = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Please provide email and password.' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  try {
+    // Step A: Find the user in the database
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid email or password.' }); // Keep error vague for security
+    }
+
+    const user = userResult.rows[0];
+
+    // Step B: Compare the password
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    // Step C: Generate the JWT Token 
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is missing');
+
+    const token = jwt.sign(
+      { userId: user.id, organizationId: user.organization_id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(200).json({
+      message: 'Login successful!',
+      token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organization_id: user.organization_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Login Error:', error);
+    res.status(500).json({ error: 'Internal server error during login.' });
+  }
+};
+
+// 3. UPDATE USER PROFILE
+const updateProfile = async (req, res) => {
+  const userId = req.user.userId;
+  const organizationId = req.user.organizationId;
+  const { organization_name, reg_number, user_name, email, password } = req.body;
+
+  if (!organization_name || !user_name || !email) {
+    return res.status(400).json({ error: 'Please provide organization_name, user_name, and email.' });
+  }
+
+  if (!organizationId) {
+    return res.status(400).json({ error: 'No organization linked to this account. Please complete your profile first.' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  if (!emailRegex.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'Please provide a valid email address.' });
+  }
+
+  if (password && password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const emailCheck = await client.query(
+      'SELECT id FROM users WHERE email = $1 AND id != $2',
+      [normalizedEmail, userId]
+    );
+
+    if (emailCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'That email address is already in use.' });
+    }
+
+    await client.query('BEGIN');
+
+    const orgResult = await client.query(
+      `UPDATE organizations 
+       SET name = $1, reg_number = $2 
+       WHERE id = $3 
+       RETURNING id, name, reg_number`,
+      [organization_name.trim(), reg_number ? reg_number.trim() : null, organizationId]
+    );
+
+    if (orgResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Organization not found.' });
+    }
+
+    let userResult;
+    if (password) {
+      const password_hash = await bcrypt.hash(password, 12);
+      userResult = await client.query(
+        `UPDATE users 
+         SET name = $1, email = $2, password_hash = $3 
+         WHERE id = $4 
+         RETURNING id, name, email, role, organization_id`,
+        [user_name.trim(), normalizedEmail, password_hash, userId]
+      );
+    } else {
+      userResult = await client.query(
+        `UPDATE users 
+         SET name = $1, email = $2 
+         WHERE id = $3 
+         RETURNING id, name, email, role, organization_id`,
+        [user_name.trim(), normalizedEmail, userId]
+      );
+    }
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    await client.query('COMMIT');
+
+    const organization = orgResult.rows[0];
+
+    res.status(200).json({
+      message: 'Profile updated successfully!',
+      user: {
+        ...userResult.rows[0],
+        organization_name: organization.name,
+        reg_number: organization.reg_number
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Update Profile Error:', error);
+    res.status(500).json({ error: 'Failed to update profile.' });
+  } finally {
+    client.release();
+  }
+};
+
+// 4. DELETE USER ACCOUNT
+const deleteAccount = async (req, res) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.status(200).json({
+      message: 'Your account has been successfully deleted.'
+    });
+  } catch (error) {
+    console.error('Delete Account Error:', error);
+    res.status(500).json({ error: 'Failed to delete account.' });
+  }
+};
+
+const googleLogin = async (req, res) => {
+  const { access_token } = req.body;
+
+  if (!access_token) {
+    return res.status(400).json({ error: 'Access token is required.' });
+  }
+
+  try {
+    // Step A: Verify token with Supabase
+    const { data, error } = await supabase.auth.getUser(access_token);
+
+    if (error || !data.user) {
+      return res.status(401).json({ error: 'Invalid or expired Google token.' });
+    }
+
+    const email = data.user.email.toLowerCase().trim();
+    const name = data.user.user_metadata.full_name;
+
+    // Step B: Check if user exists in the database
+    const existingUserResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+
+    if (existingUserResult.rows.length === 0) {
+      // NEW USER: Insert them (organization_id and password_hash remain NULL)
+      const newUserResult = await pool.query(
+        `INSERT INTO users (name, email, role) VALUES ($1, $2, $3) RETURNING *`,
+        [name, email, 'admin']
+      );
+      
+      const newUser = newUserResult.rows[0];
+
+      return res.status(200).json({
+        message: 'Google Login successful. Missing organization details.',
+        is_profile_complete: false,
+        user: { id: newUser.id, email: newUser.email, name: newUser.name }
+      });
+    }
+
+    // EXISTING USER: Generate JWT and check profile status
+    const user = existingUserResult.rows[0];
+    const profileComplete = user.organization_id !== null;
+
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is missing');
+
+    const token = jwt.sign(
+      { userId: user.id, organizationId: user.organization_id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(200).json({
+      message: 'Google Login successful',
+      is_profile_complete: profileComplete,
+      token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organization_id: user.organization_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Google Auth Error:', error);
+    res.status(500).json({ error: 'Internal server error during Google login.' });
+  }
+};
+
+// 4. COMPLETE PROFILE CONTROLLER (NEW)
+const completeProfile = async (req, res) => {
+  const { email, organization_name, reg_number, password } = req.body;
+
+  if (!email || !organization_name || !password) {
+    return res.status(400).json({ error: 'Please provide all required fields.' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN'); // Start Transaction
+
+    // Step A: Create the Organization
+    const orgResult = await client.query(
+      `INSERT INTO organizations (name, reg_number) VALUES ($1, $2) RETURNING id`,
+      [organization_name.trim(), reg_number ? reg_number.trim() : null]
+    );
+    const orgId = orgResult.rows[0].id;
+
+    // Step B: Hash the password
+    const saltRounds = 12;
+    const password_hash = await bcrypt.hash(password, saltRounds);
+
+    // Step C: Update the existing Google User
+    const userResult = await client.query(
+      `UPDATE users 
+       SET organization_id = $1, password_hash = $2 
+       WHERE email = $3 
+       RETURNING id, name, email, role, organization_id`,
+      [orgId, password_hash, normalizedEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    await client.query('COMMIT'); // Save changes
+
+    const updatedUser = userResult.rows[0];
+
+    // Generate JWT for immediate login
+    const token = jwt.sign(
+      { userId: updatedUser.id, organizationId: updatedUser.organization_id, role: updatedUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(200).json({
+      message: 'Profile completed successfully!',
+      token: token,
+      user: updatedUser
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Complete Profile Error:', error);
+    res.status(500).json({ error: 'Failed to complete profile. Please try again later.' });
+  } finally {
+    client.release();
+  }
+};
+
+
+module.exports = { signup, login, updateProfile, deleteAccount, googleLogin, completeProfile };
