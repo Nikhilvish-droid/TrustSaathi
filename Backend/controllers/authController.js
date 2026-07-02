@@ -1,7 +1,13 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 // Helper Regex for basic email validation
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -195,4 +201,143 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, updateProfile, deleteAccount };
+const googleLogin = async (req, res) => {
+  const { access_token } = req.body;
+
+  if (!access_token) {
+    return res.status(400).json({ error: 'Access token is required.' });
+  }
+
+  try {
+    // Step A: Verify token with Supabase
+    const { data, error } = await supabase.auth.getUser(access_token);
+
+    if (error || !data.user) {
+      return res.status(401).json({ error: 'Invalid or expired Google token.' });
+    }
+
+    const email = data.user.email.toLowerCase().trim();
+    const name = data.user.user_metadata.full_name;
+
+    // Step B: Check if user exists in the database
+    const existingUserResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+
+    if (existingUserResult.rows.length === 0) {
+      // NEW USER: Insert them (organization_id and password_hash remain NULL)
+      const newUserResult = await pool.query(
+        `INSERT INTO users (name, email, role) VALUES ($1, $2, $3) RETURNING *`,
+        [name, email, 'admin']
+      );
+      
+      const newUser = newUserResult.rows[0];
+
+      return res.status(200).json({
+        message: 'Google Login successful. Missing organization details.',
+        is_profile_complete: false,
+        user: { id: newUser.id, email: newUser.email, name: newUser.name }
+      });
+    }
+
+    // EXISTING USER: Generate JWT and check profile status
+    const user = existingUserResult.rows[0];
+    const profileComplete = user.organization_id !== null;
+
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is missing');
+
+    const token = jwt.sign(
+      { userId: user.id, organizationId: user.organization_id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(200).json({
+      message: 'Google Login successful',
+      is_profile_complete: profileComplete,
+      token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organization_id: user.organization_id
+      }
+    });
+
+  } catch (error) {
+    console.error('Google Auth Error:', error);
+    res.status(500).json({ error: 'Internal server error during Google login.' });
+  }
+};
+
+// 4. COMPLETE PROFILE CONTROLLER (NEW)
+const completeProfile = async (req, res) => {
+  const { email, organization_name, reg_number, password } = req.body;
+
+  if (!email || !organization_name || !password) {
+    return res.status(400).json({ error: 'Please provide all required fields.' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN'); // Start Transaction
+
+    // Step A: Create the Organization
+    const orgResult = await client.query(
+      `INSERT INTO organizations (name, reg_number) VALUES ($1, $2) RETURNING id`,
+      [organization_name.trim(), reg_number ? reg_number.trim() : null]
+    );
+    const orgId = orgResult.rows[0].id;
+
+    // Step B: Hash the password
+    const saltRounds = 12;
+    const password_hash = await bcrypt.hash(password, saltRounds);
+
+    // Step C: Update the existing Google User
+    const userResult = await client.query(
+      `UPDATE users 
+       SET organization_id = $1, password_hash = $2 
+       WHERE email = $3 
+       RETURNING id, name, email, role, organization_id`,
+      [orgId, password_hash, normalizedEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    await client.query('COMMIT'); // Save changes
+
+    const updatedUser = userResult.rows[0];
+
+    // Generate JWT for immediate login
+    const token = jwt.sign(
+      { userId: updatedUser.id, organizationId: updatedUser.organization_id, role: updatedUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(200).json({
+      message: 'Profile completed successfully!',
+      token: token,
+      user: updatedUser
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Complete Profile Error:', error);
+    res.status(500).json({ error: 'Failed to complete profile. Please try again later.' });
+  } finally {
+    client.release();
+  }
+};
+
+
+module.exports = { signup, login, updateProfile, deleteAccount, googleLogin, completeProfile };

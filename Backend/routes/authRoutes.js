@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { signup, login, updateProfile, deleteAccount } = require('../controllers/authController');
+const { signup, login, updateProfile, deleteAccount, googleLogin, completeProfile } = require('../controllers/authController');
 const verifyToken = require('../middleware/authMiddleware');
 const rateLimit = require('express-rate-limit'); // Import the new security package
 
@@ -17,6 +17,8 @@ const authLimiter = rateLimit({
 // Public Routes (Protected by rate limiter)
 router.post('/signup', authLimiter, signup);
 router.post('/login', authLimiter, login);
+router.post('/google', authLimiter, googleLogin);
+router.put('/complete-profile', completeProfile);
 
 // Protected Routes (Token required in headers)
 // PUT /api/auth/update
