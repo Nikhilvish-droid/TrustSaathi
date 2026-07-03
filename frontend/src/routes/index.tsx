@@ -9,8 +9,6 @@ import {
   Upload,
   CheckCircle2,
   Star,
-  Phone,
-  Mail,
   ArrowRight,
   Flower2,
   HandCoins,
@@ -19,12 +17,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { PricingSection } from "@/components/pricing-section";
+import { FAQSection } from "@/components/faq-section";
+import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -254,174 +249,6 @@ function Testimonials() {
   );
 }
 
-function Pricing() {
-  const tiers = [
-    {
-      name: "Sevak",
-      price: "₹0",
-      period: "/forever",
-      desc: "For small temples just getting started.",
-      features: ["Up to 100 donations / month", "1 user", "Basic reports", "Email support"],
-      cta: "Start free",
-      featured: false,
-    },
-    {
-      name: "Trust",
-      price: "₹1,499",
-      period: "/month",
-      desc: "Most popular for temples and mid-sized trusts.",
-      features: ["Unlimited donations", "5 users", "AI register upload", "80G receipts", "Compliance center"],
-      cta: "Choose Trust",
-      featured: true,
-    },
-    {
-      name: "Sanstha",
-      price: "Custom",
-      period: "",
-      desc: "For large NGOs and trust networks.",
-      features: ["Unlimited users", "Multi-branch", "FCRA reporting", "Dedicated manager"],
-      cta: "Talk to us",
-      featured: false,
-    },
-  ];
-  return (
-    <section id="pricing" className="border-t border-border">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-medium text-primary">Pricing</p>
-          <h2 className="mt-2 font-display text-3xl font-semibold sm:text-4xl">Honest pricing. No surprises.</h2>
-          <p className="mt-3 text-muted-foreground">Free for small temples. Pay only when you grow.</p>
-        </div>
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
-          {tiers.map((t) => (
-            <Card
-              key={t.name}
-              className={`relative rounded-2xl p-7 shadow-soft ${
-                t.featured ? "border-primary bg-card ring-1 ring-primary/30" : "border-border bg-card"
-              }`}
-            >
-              {t.featured && (
-                <span className="absolute -top-3 left-7 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                  Most Popular
-                </span>
-              )}
-              <h3 className="font-display text-xl font-semibold">{t.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{t.desc}</p>
-              <div className="mt-5 flex items-baseline gap-1">
-                <span className="font-display text-4xl font-semibold">{t.price}</span>
-                <span className="text-sm text-muted-foreground">{t.period}</span>
-              </div>
-              <ul className="mt-6 space-y-2.5 text-sm">
-                {t.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button asChild className="mt-7 w-full rounded-full" variant={t.featured ? "default" : "outline"}>
-                <Link to="/dashboard">{t.cta}</Link>
-              </Button>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FAQ() {
-  const items = [
-    { q: "Do I need accounting knowledge to use TrustSaathi?", a: "Not at all. We've removed every accounting term and replaced them with simple words. If you can use WhatsApp, you can use TrustSaathi." },
-    { q: "Can AI really read our handwritten donation registers?", a: "Yes. Upload a clear photo or scan. Our AI extracts donor name, amount, date and payment mode. A trustee reviews and approves before anything is saved." },
-    { q: "Is my data safe?", a: "Your data is encrypted and stored securely. Only the users you invite can see it. Role-based access ensures auditors only get read access." },
-    { q: "Can we generate 80G receipts?", a: "Yes, in one click. You can customise the temple seal, trustee signature and receipt format." },
-    { q: "Do you support FCRA reporting?", a: "Yes, the Sanstha plan includes FCRA-ready statements and reminders for filing deadlines." },
-    { q: "Is there a free plan?", a: "Yes. The Sevak plan is free forever for small temples up to 100 donations per month." },
-  ];
-  return (
-    <section id="faq" className="border-t border-border bg-secondary/40">
-      <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
-        <h2 className="font-display text-3xl font-semibold sm:text-4xl">Frequently asked questions</h2>
-        <Accordion type="single" collapsible className="mt-8">
-          {items.map((it, i) => (
-            <AccordionItem key={i} value={`item-${i}`} className="border-border">
-              <AccordionTrigger className="text-left text-base font-medium">{it.q}</AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">{it.a}</AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </div>
-    </section>
-  );
-}
-
-function CTAContact() {
-  return (
-    <section id="contact" className="border-t border-border">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-        <div className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-accent via-card to-card p-10 shadow-card sm:p-14">
-          <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
-            <div>
-              <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-                Digitize your temple in minutes 🙏
-              </h2>
-              <p className="mt-3 max-w-lg text-muted-foreground">
-                Join 200+ temples, trusts and NGOs already running on TrustSaathi.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button asChild size="lg" className="rounded-full px-7">
-                  <Link to="/dashboard">Open Dashboard <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                </Button>
-                <Button asChild size="lg" variant="outline" className="rounded-full px-7">
-                  <a href="tel:+919999999999">Talk to us</a>
-                </Button>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-border bg-background p-5">
-                <Phone className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm text-muted-foreground">Call us</p>
-                <p className="font-medium">+91 99999 99999</p>
-              </div>
-              <div className="rounded-2xl border border-border bg-background p-5">
-                <Mail className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm text-muted-foreground">Email</p>
-                <p className="font-medium">hello@trustsaathi.in</p>
-              </div>
-              <div className="rounded-2xl border border-border bg-background p-5 sm:col-span-2">
-                <FileText className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm text-muted-foreground">Office</p>
-                <p className="font-medium">Pune, Maharashtra, India</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-border bg-secondary/40">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <Flower2 className="h-4 w-4" />
-            </span>
-            <span className="font-display text-lg font-semibold">TrustSaathi</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} TrustSaathi. Made with 🙏 in India.
-          </p>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 function Landing() {
   return (
     <div className="min-h-screen bg-background">
@@ -431,11 +258,10 @@ function Landing() {
         <Features />
         <HowAI />
         <Testimonials />
-        <Pricing />
-        <FAQ />
-        <CTAContact />
+        <PricingSection />
+        <FAQSection />
       </main>
-      <Footer />
+      <SiteFooter variant="landing" />
     </div>
   );
 }

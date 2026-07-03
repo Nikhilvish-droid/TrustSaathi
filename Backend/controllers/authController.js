@@ -12,6 +12,28 @@ const supabase = createClient(
 // Helper Regex for basic email validation
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const formatUserProfile = (row) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  role: row.role,
+  organization_id: row.organization_id,
+  organization_name: row.organization_name ?? null,
+  reg_number: row.reg_number ?? null,
+});
+
+const fetchUserProfile = async (userId) => {
+  const result = await pool.query(
+    `SELECT u.id, u.name, u.email, u.role, u.organization_id,
+            o.name AS organization_name, o.reg_number
+     FROM users u
+     LEFT JOIN organizations o ON u.organization_id = o.id
+     WHERE u.id = $1`,
+    [userId]
+  );
+  return result.rows[0] ? formatUserProfile(result.rows[0]) : null;
+};
+
 // 1. SIGNUP CONTROLLER
 const signup = async (req, res) => {
   const { organization_name, reg_number, user_name, email, password } = req.body;
@@ -112,16 +134,12 @@ const login = async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    const profile = await fetchUserProfile(user.id);
+
     res.status(200).json({
       message: 'Login successful!',
       token: token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        organization_id: user.organization_id
-      }
+      user: profile,
     });
 
   } catch (error) {
@@ -212,11 +230,11 @@ const updateProfile = async (req, res) => {
 
     res.status(200).json({
       message: 'Profile updated successfully!',
-      user: {
+      user: formatUserProfile({
         ...userResult.rows[0],
         organization_name: organization.name,
-        reg_number: organization.reg_number
-      }
+        reg_number: organization.reg_number,
+      }),
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -299,17 +317,13 @@ const googleLogin = async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    const profile = await fetchUserProfile(user.id);
+
     res.status(200).json({
       message: 'Google Login successful',
       is_profile_complete: profileComplete,
       token: token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        organization_id: user.organization_id
-      }
+      user: profile,
     });
 
   } catch (error) {
@@ -373,10 +387,12 @@ const completeProfile = async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    const profile = await fetchUserProfile(updatedUser.id);
+
     res.status(200).json({
       message: 'Profile completed successfully!',
       token: token,
-      user: updatedUser
+      user: profile,
     });
 
   } catch (error) {
@@ -389,4 +405,19 @@ const completeProfile = async (req, res) => {
 };
 
 
-module.exports = { signup, login, updateProfile, deleteAccount, googleLogin, completeProfile };
+// GET CURRENT USER PROFILE
+const getProfile = async (req, res) => {
+  try {
+    const profile = await fetchUserProfile(req.user.userId);
+    if (!profile) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    res.status(200).json({ user: profile });
+  } catch (error) {
+    console.error('Get Profile Error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile.' });
+  }
+};
+
+
+module.exports = { signup, login, updateProfile, deleteAccount, googleLogin, completeProfile, getProfile };

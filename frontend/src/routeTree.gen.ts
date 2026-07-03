@@ -14,6 +14,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
+import { Route as AuthIndexRouteImport } from './routes/auth.index'
 import { Route as DashboardUploadRouteImport } from './routes/dashboard.upload'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
 import { Route as DashboardReportsRouteImport } from './routes/dashboard.reports'
@@ -26,6 +27,8 @@ import { Route as DashboardDonationsRouteImport } from './routes/dashboard.donat
 import { Route as DashboardComplianceRouteImport } from './routes/dashboard.compliance'
 import { Route as DashboardCashRouteImport } from './routes/dashboard.cash'
 import { Route as DashboardAssetsRouteImport } from './routes/dashboard.assets'
+import { Route as AuthCompleteProfileRouteImport } from './routes/auth.complete-profile'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -51,6 +54,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardRoute,
+} as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthRoute,
 } as any)
 const DashboardUploadRoute = DashboardUploadRouteImport.update({
   id: '/upload',
@@ -112,12 +120,24 @@ const DashboardAssetsRoute = DashboardAssetsRouteImport.update({
   path: '/assets',
   getParentRoute: () => DashboardRoute,
 } as any)
+const AuthCompleteProfileRoute = AuthCompleteProfileRouteImport.update({
+  id: '/complete-profile',
+  path: '/complete-profile',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/complete-profile': typeof AuthCompleteProfileRoute
   '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/cash': typeof DashboardCashRoute
   '/dashboard/compliance': typeof DashboardComplianceRoute
@@ -130,12 +150,14 @@ export interface FileRoutesByFullPath {
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/upload': typeof DashboardUploadRoute
+  '/auth/': typeof AuthIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/complete-profile': typeof AuthCompleteProfileRoute
   '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/cash': typeof DashboardCashRoute
   '/dashboard/compliance': typeof DashboardComplianceRoute
@@ -148,14 +170,17 @@ export interface FileRoutesByTo {
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/upload': typeof DashboardUploadRoute
+  '/auth': typeof AuthIndexRoute
   '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/complete-profile': typeof AuthCompleteProfileRoute
   '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/cash': typeof DashboardCashRoute
   '/dashboard/compliance': typeof DashboardComplianceRoute
@@ -168,6 +193,7 @@ export interface FileRoutesById {
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/upload': typeof DashboardUploadRoute
+  '/auth/': typeof AuthIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -177,6 +203,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/sitemap.xml'
+    | '/auth/callback'
+    | '/auth/complete-profile'
     | '/dashboard/assets'
     | '/dashboard/cash'
     | '/dashboard/compliance'
@@ -189,12 +217,14 @@ export interface FileRouteTypes {
     | '/dashboard/reports'
     | '/dashboard/settings'
     | '/dashboard/upload'
+    | '/auth/'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/sitemap.xml'
+    | '/auth/callback'
+    | '/auth/complete-profile'
     | '/dashboard/assets'
     | '/dashboard/cash'
     | '/dashboard/compliance'
@@ -207,6 +237,7 @@ export interface FileRouteTypes {
     | '/dashboard/reports'
     | '/dashboard/settings'
     | '/dashboard/upload'
+    | '/auth'
     | '/dashboard'
   id:
     | '__root__'
@@ -214,6 +245,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/sitemap.xml'
+    | '/auth/callback'
+    | '/auth/complete-profile'
     | '/dashboard/assets'
     | '/dashboard/cash'
     | '/dashboard/compliance'
@@ -226,12 +259,13 @@ export interface FileRouteTypes {
     | '/dashboard/reports'
     | '/dashboard/settings'
     | '/dashboard/upload'
+    | '/auth/'
     | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthRoute: typeof AuthRoute
+  AuthRoute: typeof AuthRouteWithChildren
   DashboardRoute: typeof DashboardRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
@@ -272,6 +306,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/auth/': {
+      id: '/auth/'
+      path: '/'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof AuthRoute
     }
     '/dashboard/upload': {
       id: '/dashboard/upload'
@@ -357,8 +398,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAssetsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/auth/complete-profile': {
+      id: '/auth/complete-profile'
+      path: '/complete-profile'
+      fullPath: '/auth/complete-profile'
+      preLoaderRoute: typeof AuthCompleteProfileRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRoute
+    }
   }
 }
+
+interface AuthRouteChildren {
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthCompleteProfileRoute: typeof AuthCompleteProfileRoute
+  AuthIndexRoute: typeof AuthIndexRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthCallbackRoute: AuthCallbackRoute,
+  AuthCompleteProfileRoute: AuthCompleteProfileRoute,
+  AuthIndexRoute: AuthIndexRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface DashboardRouteChildren {
   DashboardAssetsRoute: typeof DashboardAssetsRoute
@@ -398,10 +467,20 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthRoute: AuthRoute,
+  AuthRoute: AuthRouteWithChildren,
   DashboardRoute: DashboardRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

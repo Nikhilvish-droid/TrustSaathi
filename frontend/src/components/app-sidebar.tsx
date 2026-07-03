@@ -85,7 +85,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/" className="flex items-center gap-2 px-2 py-2">
+        <div className="flex items-center gap-2 px-2 py-2" aria-label="TrustSaathi">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Flower2 className="h-5 w-5" />
           </span>
@@ -95,7 +95,7 @@ export function AppSidebar() {
               <p className="truncate text-[11px] text-muted-foreground">Temple & Trust OS</p>
             </div>
           )}
-        </Link>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         {renderGroup("Main", main)}

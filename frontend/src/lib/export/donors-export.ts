@@ -1,0 +1,40 @@
+import { apiJson } from "../api-client";
+import type { DonorStats } from "../donors-api";
+import type { ExportPayload } from "./export-templates";
+
+export type DonorExportRow = {
+  donation_id: string;
+  donor_name: string;
+  donor_type: string;
+  contact: string | null;
+  pan: string | null;
+  date: string;
+  payment_mode: string;
+  amount: number;
+};
+
+export type DonorsExportResponse = ExportPayload & {
+  message: string;
+  stats: DonorStats;
+  rows: DonorExportRow[];
+};
+
+export function fetchDonorsExport(search = "", filter = "all") {
+  const params = new URLSearchParams();
+  if (search.trim()) params.set("search", search.trim());
+  if (filter !== "all") params.set("filter", filter);
+  const qs = params.toString();
+  return apiJson<DonorsExportResponse>(`/api/donors/export${qs ? `?${qs}` : ""}`);
+}
+
+export async function exportDonorsPdf(search = "", filter = "all") {
+  const { getExportTemplate } = await import("./export-templates");
+  const { generatePdfFromTemplate } = await import("./pdf-export");
+
+  const template = getExportTemplate("donors-ledger");
+  if (!template) throw new Error("Export template not found.");
+
+  const payload = await fetchDonorsExport(search, filter);
+  generatePdfFromTemplate(template, payload);
+  return payload;
+}

@@ -1,19 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   HandCoins,
   Users,
   TrendingUp,
   TrendingDown,
-  Wallet,
+  BarChart3,
   Upload,
   Plus,
   Receipt,
   FileBarChart,
   UserPlus,
   ListChecks,
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle2,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
@@ -22,11 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -36,6 +32,30 @@ import {
   ComposedChart,
   Legend,
 } from "recharts";
+import { fetchProfile } from "@/lib/auth-api";
+import {
+  fetchDonationSummary,
+  fetchTopDonors,
+  fetchRecentDonations,
+  formatInr,
+  formatDonationDate,
+  formatPercentChange,
+  type DashboardPeriod,
+  type DonationSummaryData,
+  type ChartOverviewPoint,
+  type TopDonor,
+  type RecentDonation,
+} from "@/lib/donations-api";
+import { toast } from "sonner";
+import { PricingSection } from "@/components/pricing-section";
+import { FAQSection } from "@/components/faq-section";
+
+const PERIOD_OPTIONS: { label: string; value: DashboardPeriod }[] = [
+  { label: "Today", value: "today" },
+  { label: "This Month", value: "month" },
+  { label: "This Year", value: "fy" },
+  { label: "Lifetime", value: "lifetime" },
+];
 
 export const Route = createFileRoute("/dashboard/")({
   head: () => ({
@@ -47,126 +67,279 @@ export const Route = createFileRoute("/dashboard/")({
   component: DashboardHome,
 });
 
-const kpis = [
-  { label: "Total Donations", value: "₹28,45,000", delta: "+12.4%", up: true, icon: HandCoins },
-  { label: "Total Donors", value: "1,248", delta: "+38 this month", up: true, icon: Users },
-  { label: "Total Income", value: "₹32,10,000", delta: "+9.2%", up: true, icon: TrendingUp },
-  { label: "Total Expenses", value: "₹7,42,100", delta: "-3.1%", up: false, icon: TrendingDown },
-  { label: "Net Surplus", value: "₹24,67,900", delta: "+18.0%", up: true, icon: Wallet },
-];
+const MODE_COLORS = ["hsl(38 70% 42%)", "hsl(150 50% 45%)", "hsl(220 50% 55%)", "hsl(280 45% 55%)", "hsl(25 75% 55%)", "hsl(200 60% 50%)", "hsl(340 55% 55%)"];
 
-const donationData = [
-  { m: "Apr", donations: 180, donors: 120 },
-  { m: "May", donations: 220, donors: 140 },
-  { m: "Jun", donations: 260, donors: 155 },
-  { m: "Jul", donations: 240, donors: 165 },
-  { m: "Aug", donations: 320, donors: 198 },
-  { m: "Sep", donations: 290, donors: 188 },
-  { m: "Oct", donations: 360, donors: 220 },
-  { m: "Nov", donations: 410, donors: 245 },
-  { m: "Dec", donations: 480, donors: 290 },
-  { m: "Jan", donations: 360, donors: 240 },
-  { m: "Feb", donations: 340, donors: 230 },
-  { m: "Mar", donations: 420, donors: 280 },
-];
+function modeColor(index: number): string {
+  return MODE_COLORS[index % MODE_COLORS.length];
+}
 
-const modeData = [
-  { name: "UPI", value: 48 },
-  { name: "Cash", value: 22 },
-  { name: "Bank Transfer", value: 18 },
-  { name: "Cheque", value: 8 },
-  { name: "Card", value: 4 },
-];
-const MODE_COLORS = ["hsl(38 70% 42%)", "hsl(150 50% 45%)", "hsl(220 50% 55%)", "hsl(280 45% 55%)", "hsl(25 75% 55%)"];
+function buildPaymentModeChartData(modes: DonationSummaryData["payment_modes"]) {
+  return modes.map((m) => ({
+    name: m.mode,
+    value: m.count,
+    share: m.percent,
+    amount: m.amount,
+  }));
+}
 
-const incomeExpense = [
-  { m: "Apr", income: 240, expense: 90 },
-  { m: "May", income: 280, expense: 110 },
-  { m: "Jun", income: 320, expense: 130 },
-  { m: "Jul", income: 290, expense: 100 },
-  { m: "Aug", income: 380, expense: 150 },
-  { m: "Sep", income: 350, expense: 140 },
-  { m: "Oct", income: 420, expense: 170 },
-  { m: "Nov", income: 480, expense: 180 },
-];
-
-const topDonors = [
-  { name: "Shri Anil Mehta", phone: "+91 98200 11234", total: "₹2,50,000", count: 8 },
-  { name: "Smt. Radha Iyer", phone: "+91 98765 43210", total: "₹1,80,000", count: 12 },
-  { name: "Sundar Foundation", phone: "+91 80800 99000", total: "₹1,50,000", count: 3 },
-  { name: "Shri Rajesh Kapoor", phone: "+91 99887 76655", total: "₹1,25,000", count: 6 },
-  { name: "Devi Charitable Trust", phone: "+91 98111 22334", total: "₹95,000", count: 4 },
-];
-
-const recent = [
-  { name: "Priya Sharma", amount: "₹5,100", mode: "UPI", date: "Today, 11:24 AM", purpose: "Annadaan" },
-  { name: "Karthik N.", amount: "₹2,500", mode: "Cash", date: "Today, 10:02 AM", purpose: "Pooja Seva" },
-  { name: "Meena Gupta", amount: "₹11,000", mode: "Bank", date: "Yesterday", purpose: "Construction" },
-  { name: "Suresh Patel", amount: "₹501", mode: "UPI", date: "Yesterday", purpose: "General" },
-  { name: "Anand Rao", amount: "₹25,000", mode: "Cheque", date: "2 days ago", purpose: "Festival" },
-];
-
-const alerts = [
-  { tone: "danger", title: "12 donations missing receipts", desc: "Last 30 days · click to fix" },
-  { tone: "warning", title: "3 large cash transactions need PAN", desc: "Over ₹50,000 limit" },
-  { tone: "warning", title: "FCRA quarterly report due in 9 days", desc: "Filing deadline: 30 Jun 2026" },
-  { tone: "success", title: "Trust registration is valid", desc: "Renews on 14 Mar 2028" },
-];
-
-const toneStyles: Record<string, string> = {
-  danger: "bg-destructive/5 border-destructive/20 text-destructive",
-  warning: "bg-warning/10 border-warning/30 text-warning-foreground",
-  success: "bg-success/10 border-success/30 text-success",
+type PieLabelProps = {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  innerRadius?: number;
+  outerRadius?: number;
+  payload?: { share?: number };
 };
-const toneIcon: Record<string, typeof AlertTriangle> = {
-  danger: AlertTriangle,
-  warning: AlertCircle,
-  success: CheckCircle2,
-};
+
+function PaymentModeLabel(props: PieLabelProps) {
+  const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, payload } = props;
+  const share = payload?.share ?? 0;
+  if (share < 5) return null;
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+      {`${share.toFixed(0)}%`}
+    </text>
+  );
+}
+
+const CHART_BAR_DEFAULT = "hsl(38 55% 68%)";
+const CHART_BAR_HIGHLIGHT = "hsl(25 92% 48%)";
+const CHART_BAR_HIGHLIGHT_STROKE = "hsl(25 95% 35%)";
+const CHART_LINE_DEFAULT = "hsl(150 45% 48%)";
+const CHART_LINE_HIGHLIGHT = "hsl(25 85% 42%)";
+
+function DonationOverviewTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ dataKey?: string; payload?: ChartOverviewPoint }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div
+      className="rounded-xl border border-border bg-card px-3 py-2 text-sm shadow-soft"
+      style={{ border: "1px solid hsl(0 0% 90%)" }}
+    >
+      <p className="font-semibold">{label}</p>
+      <p className="text-muted-foreground">
+        Total donations: <span className="font-medium text-foreground">{formatInr(row.donation_amount)}</span>
+      </p>
+      <p className="text-muted-foreground">
+        Donation records: <span className="font-medium text-foreground">{row.donation_count}</span>
+      </p>
+      <p className="text-muted-foreground">
+        Avg donation: <span className="font-medium text-foreground">{formatInr(row.avg_donation)}</span>
+      </p>
+      <p className="text-muted-foreground">
+        Unique donors: <span className="font-medium text-foreground">{row.donors}</span>
+      </p>
+    </div>
+  );
+}
+
+function getFirstName(fullName?: string): string {
+  if (!fullName) return "there";
+  const parts = fullName.split(/[\s_]+/).filter((p) => /^[A-Za-z]{2,}$/.test(p));
+  return parts[0] ?? "there";
+}
+
+function formatTodayDate(): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+}
+
+function buildKpis(data: DonationSummaryData, period: DashboardPeriod) {
+  const donationCount = data.total_donations.toLocaleString("en-IN");
+  const periodLabel = data.period_label;
+  const isLifetime = period === "lifetime";
+
+  return [
+    {
+      label: "Total Raised",
+      value: formatInr(data.total_funds),
+      sub: periodLabel,
+      delta: formatPercentChange(data.changes.total_funds),
+      icon: HandCoins,
+    },
+    {
+      label: isLifetime ? "Total Donors" : "Active Donors",
+      value: isLifetime
+        ? (data.registered_donors ?? 0).toLocaleString("en-IN")
+        : data.total_donors.toLocaleString("en-IN"),
+      sub: `${donationCount} donation${data.total_donations === 1 ? "" : "s"} · ${periodLabel}`,
+      delta: formatPercentChange(data.changes.total_donors),
+      icon: Users,
+    },
+    {
+      label: "Avg Donation",
+      value: formatInr(data.avg_donation),
+      sub: periodLabel,
+      delta: formatPercentChange(data.changes.avg_donation),
+      icon: TrendingUp,
+    },
+    {
+      label: "Max Donation",
+      value: formatInr(data.max_donation),
+      sub: periodLabel,
+      delta: formatPercentChange(data.changes.max_donation),
+      icon: BarChart3,
+    },
+    {
+      label: "Min Donation",
+      value: formatInr(data.min_donation),
+      sub: periodLabel,
+      delta: formatPercentChange(data.changes.min_donation),
+      icon: TrendingDown,
+    },
+  ];
+}
 
 function DashboardHome() {
+  const [userName, setUserName] = useState<string>("");
+  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const [summary, setSummary] = useState<DonationSummaryData | null>(null);
+  const [topDonors, setTopDonors] = useState<TopDonor[]>([]);
+  const [recentDonations, setRecentDonations] = useState<RecentDonation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tablesLoading, setTablesLoading] = useState(true);
+
+  useEffect(() => {
+    void fetchProfile()
+      .then(({ user }) => setUserName(user.name ?? ""))
+      .catch(() => setUserName(""));
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { data } = await fetchDonationSummary(period);
+        setSummary(data);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load dashboard stats.");
+        setSummary(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
+  }, [period]);
+
+  useEffect(() => {
+    const loadTables = async () => {
+      setTablesLoading(true);
+      try {
+        const [donorsRes, recentRes] = await Promise.all([
+          fetchTopDonors(5),
+          fetchRecentDonations(5),
+        ]);
+        setTopDonors(donorsRes.donors);
+        setRecentDonations(recentRes.donations);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load donor tables.");
+        setTopDonors([]);
+        setRecentDonations([]);
+      } finally {
+        setTablesLoading(false);
+      }
+    };
+    void loadTables();
+  }, []);
+
+  const kpis = useMemo(
+    () => (summary ? buildKpis(summary, period) : []),
+    [summary, period],
+  );
+  const paymentModeData = useMemo(
+    () => (summary?.payment_modes ? buildPaymentModeChartData(summary.payment_modes) : []),
+    [summary],
+  );
+  const chartOverview = summary?.chart_overview ?? [];
+  const avgLineMax = useMemo(() => {
+    const peak = chartOverview.reduce((m, p) => Math.max(m, p.avg_donation_k ?? 0), 0);
+    return Math.max(Math.ceil(peak * 1.25), 1);
+  }, [chartOverview]);
+  const firstName = getFirstName(userName);
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Greeting */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">Jai Shree Krishna 🙏</p>
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">Welcome back, Ramesh ji</h1>
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">
+            Welcome back, {firstName} ji
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Here's what's happening at your temple today — Tuesday, 30 June 2026.
+            Here&apos;s what&apos;s happening at your temple today — {formatTodayDate()}
+            {summary?.period_label ? (
+              <span className="text-foreground/70"> · Showing: {summary.period_label}</span>
+            ) : null}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {["Today", "This Month", "Financial Year", "Custom"].map((p, i) => (
-            <Button key={p} variant={i === 1 ? "default" : "outline"} size="sm" className="rounded-full">
-              {p}
-            </Button>
-          ))}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {PERIOD_OPTIONS.map((p) => (
+              <Button
+                key={p.value}
+                variant={period === p.value ? "default" : "outline"}
+                size="sm"
+                className="rounded-full"
+                onClick={() => setPeriod(p.value)}
+              >
+                {p.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* KPI cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {kpis.map((k) => (
-          <Card key={k.label} className="rounded-2xl border-border shadow-soft">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-primary">
-                  <k.icon className="h-4 w-4" />
-                </div>
-                <span
-                  className={`text-xs font-medium ${
-                    k.up ? "text-success" : "text-destructive"
-                  }`}
-                >
-                  {k.delta}
-                </span>
-              </div>
-              <p className="mt-4 text-xs uppercase tracking-wide text-muted-foreground">{k.label}</p>
-              <p className="mt-1 font-display text-2xl font-semibold">{k.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {loading
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} className="rounded-2xl border-border shadow-soft">
+                <CardContent className="p-5">
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                </CardContent>
+              </Card>
+            ))
+          : kpis.map((k) => (
+              <Card key={k.label} className="rounded-2xl border-border shadow-soft">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-primary">
+                      <k.icon className="h-4 w-4" />
+                    </div>
+                    <span
+                      className={`text-xs font-medium ${
+                        k.delta.up ? "text-success" : "text-destructive"
+                      }`}
+                    >
+                      {k.delta.text}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-xs uppercase tracking-wide text-muted-foreground">{k.label}</p>
+                  <p className="mt-1 font-display text-2xl font-semibold">{k.value}</p>
+                  {"sub" in k && k.sub ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{k.sub}</p>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ))}
       </div>
 
       {/* Charts row */}
@@ -175,99 +348,163 @@ function DashboardHome() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="font-display text-lg">Donations Overview</CardTitle>
-              <p className="text-sm text-muted-foreground">Last 12 months · ₹ in thousands</p>
+              <p className="text-sm text-muted-foreground">
+                {summary?.chart_subtitle ?? "Loading chart…"}
+              </p>
             </div>
-            <Badge variant="secondary" className="rounded-full">FY 2025-26</Badge>
+            {summary?.chart_badge ? (
+              <Badge variant="secondary" className="rounded-full">
+                {summary.chart_badge}
+              </Badge>
+            ) : null}
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={donationData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 90%)" vertical={false} />
-                <XAxis dataKey="m" stroke="hsl(0 0% 50%)" fontSize={12} />
-                <YAxis stroke="hsl(0 0% 50%)" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid hsl(0 0% 90%)",
-                    boxShadow: "0 8px 24px rgba(0,0,0,.06)",
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="donations" name="Donations" fill="hsl(38 70% 42%)" radius={[6, 6, 0, 0]} barSize={18} />
-                <Line type="monotone" dataKey="donors" name="Donors" stroke="hsl(150 50% 40%)" strokeWidth={2.5} dot={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartOverview} margin={{ top: 12, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 90%)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    stroke="hsl(0 0% 50%)"
+                    fontSize={11}
+                    interval={0}
+                    angle={chartOverview.length > 8 ? -35 : 0}
+                    textAnchor={chartOverview.length > 8 ? "end" : "middle"}
+                    height={chartOverview.length > 8 ? 50 : 30}
+                    tick={({ x, y, payload }) => {
+                      const point = chartOverview.find((p) => p.label === payload?.value);
+                      const active = point?.is_highlight;
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          dy={chartOverview.length > 8 ? 4 : 16}
+                          textAnchor={chartOverview.length > 8 ? "end" : "middle"}
+                          fill={active ? CHART_BAR_HIGHLIGHT : "hsl(0 0% 45%)"}
+                          fontSize={11}
+                          fontWeight={active ? 700 : 400}
+                        >
+                          {payload?.value}
+                        </text>
+                      );
+                    }}
+                  />
+                  <YAxis yAxisId="amount" stroke="hsl(38 70% 42%)" fontSize={12} tickFormatter={(v) => `${v}k`} />
+                  <YAxis
+                    yAxisId="avg"
+                    orientation="right"
+                    stroke="hsl(150 50% 40%)"
+                    fontSize={12}
+                    domain={[0, avgLineMax]}
+                    tickFormatter={(v) => `${v}k`}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<DonationOverviewTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar
+                    yAxisId="amount"
+                    dataKey="donations_k"
+                    name="Donations (₹ thousands)"
+                    radius={[6, 6, 0, 0]}
+                    barSize={chartOverview.length > 8 ? 14 : 22}
+                  >
+                    {chartOverview.map((entry, i) => (
+                      <Cell
+                        key={i}
+                        fill={entry.is_highlight ? CHART_BAR_HIGHLIGHT : CHART_BAR_DEFAULT}
+                        stroke={entry.is_highlight ? CHART_BAR_HIGHLIGHT_STROKE : "none"}
+                        strokeWidth={entry.is_highlight ? 2 : 0}
+                      />
+                    ))}
+                  </Bar>
+                  <Line
+                    yAxisId="avg"
+                    type="monotone"
+                    dataKey="avg_donation_k"
+                    name="Avg donation (₹ thousands)"
+                    stroke={CHART_LINE_DEFAULT}
+                    strokeWidth={2.5}
+                    dot={(props) => {
+                      const { cx, cy, payload } = props as { cx?: number; cy?: number; payload?: ChartOverviewPoint };
+                      if (cx == null || cy == null) return <circle cx={0} cy={0} r={0} fill="none" />;
+                      const highlighted = payload?.is_highlight;
+                      return (
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={highlighted ? 6 : 3}
+                          fill={highlighted ? CHART_LINE_HIGHLIGHT : CHART_LINE_DEFAULT}
+                          stroke={highlighted ? CHART_BAR_HIGHLIGHT_STROKE : "none"}
+                          strokeWidth={highlighted ? 2 : 0}
+                        />
+                      );
+                    }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl border-border shadow-soft">
           <CardHeader>
             <CardTitle className="font-display text-lg">Payment Mode</CardTitle>
-            <p className="text-sm text-muted-foreground">How donors are paying</p>
+            <p className="text-sm text-muted-foreground">
+              How donors are paying
+              {summary?.period_label ? ` · ${summary.period_label}` : ""}
+            </p>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={modeData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
-                  {modeData.map((_, i) => (
-                    <Cell key={i} fill={MODE_COLORS[i]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid hsl(0 0% 90%)",
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Income vs expense + compliance alerts */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="rounded-2xl border-border shadow-soft lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="font-display text-lg">Income vs Expenses</CardTitle>
-            <p className="text-sm text-muted-foreground">Monthly comparison · ₹ in thousands</p>
-          </CardHeader>
-          <CardContent className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={incomeExpense}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 90%)" vertical={false} />
-                <XAxis dataKey="m" stroke="hsl(0 0% 50%)" fontSize={12} />
-                <YAxis stroke="hsl(0 0% 50%)" fontSize={12} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(0 0% 90%)" }} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="income" name="Income" fill="hsl(150 50% 45%)" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="expense" name="Expenses" fill="hsl(25 75% 55%)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border-border shadow-soft">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="font-display text-lg">Important Alerts</CardTitle>
-            <Link to="/dashboard/compliance" className="text-xs font-medium text-primary hover:underline">
-              View all
-            </Link>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {alerts.map((a) => {
-              const Icon = toneIcon[a.tone];
-              return (
-                <div key={a.title} className={`flex items-start gap-3 rounded-xl border p-3 ${toneStyles[a.tone]}`}>
-                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{a.title}</p>
-                    <p className="text-xs text-muted-foreground">{a.desc}</p>
-                  </div>
-                </div>
-              );
-            })}
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+            ) : paymentModeData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No donations in this period
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={paymentModeData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={90}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={PaymentModeLabel}
+                    labelLine={false}
+                  >
+                    {paymentModeData.map((_, i) => (
+                      <Cell key={i} fill={modeColor(i)} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, _name, item) => {
+                      const p = item.payload as { name: string; share: number; amount: number } | undefined;
+                      if (!p) return value;
+                      return [
+                        `${value} donations (${p.share}%) · ${formatInr(p.amount)}`,
+                        p.name,
+                      ];
+                    }}
+                    contentStyle={{
+                      borderRadius: 12,
+                      border: "1px solid hsl(0 0% 90%)",
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 12 }}
+                    formatter={(value, entry) => {
+                      const share = (entry.payload as { share?: number } | undefined)?.share;
+                      return share != null ? `${value} (${share}%)` : String(value);
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -310,7 +547,7 @@ function DashboardHome() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Upload handwritten registers, receipts, PDFs or bank statements. We'll extract every entry.
+              Upload handwritten registers, receipts, PDFs or bank statements. We&apos;ll extract every entry.
             </p>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
@@ -335,72 +572,89 @@ function DashboardHome() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="rounded-2xl border-border shadow-soft">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="font-display text-lg">Top Donors</CardTitle>
+            <div>
+              <CardTitle className="font-display text-lg">Top Donors</CardTitle>
+              <p className="text-sm text-muted-foreground">Lifetime · all-time totals for your trust</p>
+            </div>
             <Link to="/dashboard/donors" className="text-xs font-medium text-primary hover:underline">
               See all
             </Link>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Donor</th>
-                  <th className="px-5 py-3 font-medium">Donations</th>
-                  <th className="px-5 py-3 text-right font-medium">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topDonors.map((d) => (
-                  <tr key={d.name} className="border-b border-border last:border-0">
-                    <td className="px-5 py-3">
-                      <p className="font-medium">{d.name}</p>
-                      <p className="text-xs text-muted-foreground">{d.phone}</p>
-                    </td>
-                    <td className="px-5 py-3 text-muted-foreground">{d.count}</td>
-                    <td className="px-5 py-3 text-right font-semibold text-primary">{d.total}</td>
+            {tablesLoading ? (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : topDonors.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No donors yet</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Donor</th>
+                    <th className="px-5 py-3 font-medium">Donations</th>
+                    <th className="px-5 py-3 text-right font-medium">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {topDonors.map((d) => (
+                    <tr key={d.name} className="border-b border-border last:border-0">
+                      <td className="px-5 py-3 font-medium">{d.name}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{d.donation_count}</td>
+                      <td className="px-5 py-3 text-right font-semibold text-primary">
+                        {formatInr(d.total_amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl border-border shadow-soft">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="font-display text-lg">Recent Donations</CardTitle>
+            <div>
+              <CardTitle className="font-display text-lg">Recent Donations</CardTitle>
+              <p className="text-sm text-muted-foreground">Latest entries in your ledger</p>
+            </div>
             <Link to="/dashboard/donations" className="text-xs font-medium text-primary hover:underline">
               See all
             </Link>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Donor</th>
-                  <th className="px-5 py-3 font-medium">Purpose</th>
-                  <th className="px-5 py-3 font-medium">Mode</th>
-                  <th className="px-5 py-3 text-right font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((r, i) => (
-                  <tr key={i} className="border-b border-border last:border-0">
-                    <td className="px-5 py-3">
-                      <p className="font-medium">{r.name}</p>
-                      <p className="text-xs text-muted-foreground">{r.date}</p>
-                    </td>
-                    <td className="px-5 py-3 text-muted-foreground">{r.purpose}</td>
-                    <td className="px-5 py-3">
-                      <Badge variant="secondary" className="rounded-full">{r.mode}</Badge>
-                    </td>
-                    <td className="px-5 py-3 text-right font-semibold">{r.amount}</td>
+            {tablesLoading ? (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : recentDonations.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No donations yet</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Donor</th>
+                    <th className="px-5 py-3 font-medium">Date</th>
+                    <th className="px-5 py-3 font-medium">Mode</th>
+                    <th className="px-5 py-3 text-right font-medium">Amount</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recentDonations.map((r) => (
+                    <tr key={r.id} className="border-b border-border last:border-0">
+                      <td className="px-5 py-3 font-medium">{r.donor_name}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{formatDonationDate(r.date)}</td>
+                      <td className="px-5 py-3">
+                        <Badge variant="secondary" className="rounded-full">{r.payment_mode}</Badge>
+                      </td>
+                      <td className="px-5 py-3 text-right font-semibold">{formatInr(r.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      <PricingSection embedded />
+      <FAQSection embedded />
     </div>
   );
 }

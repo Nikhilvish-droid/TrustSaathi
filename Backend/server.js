@@ -7,6 +7,8 @@ require('dotenv').config();
 const aiRoutes = require('./routes/aiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const donationRoutes = require('./routes/donationRoutes');
+const donorRoutes = require('./routes/donorRoutes');
+const extractRoutes = require('./routes/extractRoutes');
 const { testConnection } = require('./config/db');
 
 const app = express();
@@ -37,6 +39,8 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/donations', donationRoutes);
+app.use('/api/donors', donorRoutes);
+app.use('/api/extract', extractRoutes);
 
 // Health Check Route (Used by hosting platforms to verify server is alive)
 app.get('/api/health', (req, res) => {

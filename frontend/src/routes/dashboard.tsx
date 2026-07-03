@@ -1,11 +1,19 @@
-import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link, redirect } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Bell, Search, UserCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { getAuthToken, getAuthUser, logout, saveReturnUrl } from "@/lib/auth-session";
+import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/dashboard")({
+  beforeLoad: ({ location }) => {
+    if (typeof window !== "undefined" && !getAuthToken()) {
+      saveReturnUrl(location.pathname + location.search);
+      throw redirect({ to: "/auth" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Dashboard — TrustSaathi" },
@@ -17,6 +25,17 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardLayout() {
+  const user = getAuthUser();
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "TS";
+  const displayName = user?.name ?? "TrustSaathi User";
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-secondary/40">
@@ -34,8 +53,8 @@ function DashboardLayout() {
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
               </Button>
               <Link to="/dashboard/settings" className="flex items-center gap-2 rounded-full border border-border bg-background px-2 py-1 pr-3 hover:bg-accent">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">RJ</span>
-                <span className="hidden text-sm font-medium sm:inline">Ramesh Joshi</span>
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">{initials}</span>
+                <span className="hidden text-sm font-medium sm:inline">{displayName}</span>
                 <UserCircle2 className="hidden h-4 w-4 text-muted-foreground sm:inline" />
               </Link>
             </div>
@@ -43,6 +62,7 @@ function DashboardLayout() {
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <Outlet />
           </main>
+          <SiteFooter />
         </div>
       </div>
     </SidebarProvider>
