@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  Clock,
   FileSpreadsheet,
   FileText,
   ImageIcon,
@@ -32,6 +33,12 @@ import {
   uploadReviewedData,
   validateRowsForSubmit,
 } from "@/lib/ai-upload-api";
+import {
+  clearUploadDraft,
+  formatDraftSavedAt,
+  loadUploadDraft,
+  saveUploadDraft,
+} from "@/lib/upload-draft-storage";
 
 type FlowStep = "idle" | "extracting" | "review" | "submitting" | "success";
 
@@ -44,17 +51,71 @@ const FIELD_LABELS: Record<CriticalField, string> = {
   payment_mode: "Payment Mode",
 };
 
+type FlowState = {
+  step: FlowStep;
+  fileName: string | null;
+  extractResult: ExtractResponse | null;
+  rows: ReviewDonationRow[];
+  submitResult: { count: number; draft: boolean } | null;
+};
+
+function createInitialState(): FlowState {
+  const draft = loadUploadDraft();
+  if (draft) {
+    return {
+      step: "review",
+      fileName: draft.fileName,
+      extractResult: draft.extractResult,
+      rows: draft.rows,
+      submitResult: null,
+    };
+  }
+  return {
+    step: "idle",
+    fileName: null,
+    extractResult: null,
+    rows: [],
+    submitResult: null,
+  };
+}
+
 export function DocumentUploadFlow() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<FlowStep>("idle");
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [extractResult, setExtractResult] = useState<ExtractResponse | null>(null);
-  const [rows, setRows] = useState<ReviewDonationRow[]>([]);
-  const [submitResult, setSubmitResult] = useState<{ count: number; draft: boolean } | null>(null);
+  const restoredDraftRef = useRef(false);
+  const [{ step, fileName, extractResult, rows, submitResult }, setFlowState] = useState(createInitialState);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(() => loadUploadDraft()?.savedAt ?? null);
+
+  const setStep = (next: FlowStep) => setFlowState((prev) => ({ ...prev, step: next }));
+  const setFileName = (next: string | null) => setFlowState((prev) => ({ ...prev, fileName: next }));
+  const setExtractResult = (next: ExtractResponse | null) =>
+    setFlowState((prev) => ({ ...prev, extractResult: next }));
+  const setRows = (next: ReviewDonationRow[] | ((prev: ReviewDonationRow[]) => ReviewDonationRow[])) =>
+    setFlowState((prev) => ({
+      ...prev,
+      rows: typeof next === "function" ? next(prev.rows) : next,
+    }));
+  const setSubmitResult = (next: { count: number; draft: boolean } | null) =>
+    setFlowState((prev) => ({ ...prev, submitResult: next }));
+
+  useEffect(() => {
+    if (restoredDraftRef.current) return;
+    const draft = loadUploadDraft();
+    if (draft) {
+      restoredDraftRef.current = true;
+      toast.info(`Resumed your review of "${draft.fileName}". Your edits are saved while you navigate.`);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (step !== "review" || !extractResult || !fileName || rows.length === 0) return;
+    saveUploadDraft({ fileName, extractResult, rows });
+    setDraftSavedAt(new Date().toISOString());
+  }, [step, fileName, extractResult, rows]);
 
   const missingFields = extractResult?.ai_analysis.missing_fields ?? [];
 
   const handleFile = useCallback(async (file: File) => {
+    clearUploadDraft();
     setFileName(file.name);
     setStep("extracting");
     setExtractResult(null);
@@ -114,6 +175,8 @@ export function DocumentUploadFlow() {
       const res = await uploadReviewedData(payload);
       setSubmitResult({ count: res.records_processed, draft });
       setStep("success");
+      clearUploadDraft();
+      setDraftSavedAt(null);
       toast.success(res.message);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed.");
@@ -122,6 +185,8 @@ export function DocumentUploadFlow() {
   };
 
   const reset = () => {
+    clearUploadDraft();
+    setDraftSavedAt(null);
     setStep("idle");
     setFileName(null);
     setExtractResult(null);
@@ -191,6 +256,12 @@ export function DocumentUploadFlow() {
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
                 {fileName} · {extractResult.document_type.replace(/_/g, " ")} · {rows.length} rows
+                {draftSavedAt ? (
+                  <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    Draft saved {formatDraftSavedAt(draftSavedAt)}
+                  </span>
+                ) : null}
               </p>
               {!extractResult.ai_analysis.is_complete && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-amber-700">

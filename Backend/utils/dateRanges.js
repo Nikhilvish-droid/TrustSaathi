@@ -32,12 +32,15 @@ function getPeriodRanges(period, from, to) {
   }
 
   if (period === 'month') {
-    const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const currentStart = new Date(year, month, 1);
+    const currentEnd = new Date(year, month + 1, 0);
+    const prevMonth = new Date(year, month - 1, 1);
+    const prevEnd = new Date(year, month, 0);
     return {
       label: 'This Month',
-      current: { start: currentStart, end: endOfDay(now) },
+      current: { start: currentStart, end: endOfDay(currentEnd) },
       previous: { start: prevMonth, end: endOfDay(prevEnd) },
     };
   }
@@ -45,11 +48,12 @@ function getPeriodRanges(period, from, to) {
   if (period === 'fy') {
     const year = now.getFullYear();
     const currentStart = new Date(year, 0, 1);
+    const currentEnd = new Date(year, 11, 31);
     const prevStart = new Date(year - 1, 0, 1);
     const prevEnd = new Date(year - 1, 11, 31);
     return {
       label: 'This Year',
-      current: { start: currentStart, end: endOfDay(now) },
+      current: { start: currentStart, end: endOfDay(currentEnd) },
       previous: { start: prevStart, end: endOfDay(prevEnd) },
     };
   }
@@ -57,7 +61,7 @@ function getPeriodRanges(period, from, to) {
   return null;
 }
 
-/** Lifetime = first donation ever through today. No meaningful previous period. */
+/** Lifetime = all donations from first record onward (no upper date cap). */
 function buildLifetimeRanges(firstDonationDate) {
   const now = new Date();
   const start = firstDonationDate ? startOfDay(new Date(firstDonationDate)) : startOfDay(now);
@@ -66,7 +70,7 @@ function buildLifetimeRanges(firstDonationDate) {
 
   return {
     label: 'Lifetime',
-    current: { start, end: endOfDay(now) },
+    current: { start, end: null },
     previous: { start, end: endOfDay(prevEnd) },
   };
 }

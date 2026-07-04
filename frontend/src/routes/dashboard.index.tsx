@@ -122,7 +122,10 @@ function DonationOverviewTooltip({
   label?: string;
 }) {
   if (!active || !payload?.length) return null;
-  const row = payload[0]?.payload;
+  const row =
+    payload.find((p) => p.dataKey === "donations_k")?.payload ??
+    payload.find((p) => p.payload?.donation_count != null)?.payload ??
+    payload[0]?.payload;
   if (!row) return null;
   return (
     <div
@@ -161,17 +164,18 @@ function formatTodayDate(): string {
   }).format(new Date());
 }
 
-function buildKpis(data: DonationSummaryData, period: DashboardPeriod) {
+function buildKpis(data: DonationSummaryData) {
   const donationCount = data.total_donations.toLocaleString("en-IN");
   const periodLabel = data.period_label;
-  const isLifetime = period === "lifetime";
+  const isLifetime = data.period === "lifetime";
+  const noDelta = { text: "—", up: true as const };
 
   return [
     {
-      label: "Total Raised",
-      value: formatInr(data.total_funds),
-      sub: periodLabel,
-      delta: formatPercentChange(data.changes.total_funds),
+      label: isLifetime ? "Lifetime Total" : "Total Raised",
+      value: formatInr(isLifetime ? data.lifetime_funds : data.total_funds),
+      sub: isLifetime ? "All time" : periodLabel,
+      delta: isLifetime ? noDelta : formatPercentChange(data.changes.total_funds),
       icon: HandCoins,
     },
     {
@@ -179,29 +183,31 @@ function buildKpis(data: DonationSummaryData, period: DashboardPeriod) {
       value: isLifetime
         ? (data.registered_donors ?? 0).toLocaleString("en-IN")
         : data.total_donors.toLocaleString("en-IN"),
-      sub: `${donationCount} donation${data.total_donations === 1 ? "" : "s"} · ${periodLabel}`,
-      delta: formatPercentChange(data.changes.total_donors),
+      sub: isLifetime
+        ? `${donationCount} donation${data.total_donations === 1 ? "" : "s"} · All time`
+        : `${donationCount} donation${data.total_donations === 1 ? "" : "s"} · ${periodLabel}`,
+      delta: isLifetime ? noDelta : formatPercentChange(data.changes.total_donors),
       icon: Users,
     },
     {
       label: "Avg Donation",
       value: formatInr(data.avg_donation),
-      sub: periodLabel,
-      delta: formatPercentChange(data.changes.avg_donation),
+      sub: isLifetime ? "All time" : periodLabel,
+      delta: isLifetime ? noDelta : formatPercentChange(data.changes.avg_donation),
       icon: TrendingUp,
     },
     {
       label: "Max Donation",
       value: formatInr(data.max_donation),
-      sub: periodLabel,
-      delta: formatPercentChange(data.changes.max_donation),
+      sub: isLifetime ? "All time" : periodLabel,
+      delta: isLifetime ? noDelta : formatPercentChange(data.changes.max_donation),
       icon: BarChart3,
     },
     {
       label: "Min Donation",
       value: formatInr(data.min_donation),
-      sub: periodLabel,
-      delta: formatPercentChange(data.changes.min_donation),
+      sub: isLifetime ? "All time" : periodLabel,
+      delta: isLifetime ? noDelta : formatPercentChange(data.changes.min_donation),
       icon: TrendingDown,
     },
   ];
@@ -259,15 +265,15 @@ function DashboardHome() {
     void loadTables();
   }, []);
 
-  const kpis = useMemo(
-    () => (summary ? buildKpis(summary, period) : []),
-    [summary, period],
-  );
+  const kpis = useMemo(() => (summary ? buildKpis(summary) : []), [summary]);
   const paymentModeData = useMemo(
     () => (summary?.payment_modes ? buildPaymentModeChartData(summary.payment_modes) : []),
     [summary],
   );
   const chartOverview = summary?.chart_overview ?? [];
+  const isLifetimeChart = summary?.period === "lifetime";
+  const chartLabelCount = chartOverview.length;
+  const chartLabelsDense = chartLabelCount > 8;
   const avgLineMax = useMemo(() => {
     const peak = chartOverview.reduce((m, p) => Math.max(m, p.avg_donation_k ?? 0), 0);
     return Math.max(Math.ceil(peak * 1.25), 1);
@@ -326,7 +332,11 @@ function DashboardHome() {
                     </div>
                     <span
                       className={`text-xs font-medium ${
-                        k.delta.up ? "text-success" : "text-destructive"
+                        k.delta.text === "—"
+                          ? "text-muted-foreground"
+                          : k.delta.up
+                            ? "text-success"
+                            : "text-destructive"
                       }`}
                     >
                       {k.delta.text}
@@ -363,16 +373,19 @@ function DashboardHome() {
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartOverview} margin={{ top: 12, right: 4, left: 0, bottom: 0 }}>
+                <ComposedChart
+                  data={chartOverview}
+                  margin={{ top: 12, right: 4, left: 0, bottom: chartLabelsDense ? 8 : 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 90%)" vertical={false} />
                   <XAxis
                     dataKey="label"
                     stroke="hsl(0 0% 50%)"
                     fontSize={11}
-                    interval={0}
-                    angle={chartOverview.length > 8 ? -35 : 0}
-                    textAnchor={chartOverview.length > 8 ? "end" : "middle"}
-                    height={chartOverview.length > 8 ? 50 : 30}
+                    interval={isLifetimeChart ? 0 : chartLabelsDense ? "preserveStartEnd" : 0}
+                    angle={chartLabelsDense && !isLifetimeChart ? -35 : 0}
+                    textAnchor={chartLabelsDense && !isLifetimeChart ? "end" : "middle"}
+                    height={chartLabelsDense && !isLifetimeChart ? 50 : 30}
                     tick={({ x, y, payload }) => {
                       const point = chartOverview.find((p) => p.label === payload?.value);
                       const active = point?.is_highlight;
@@ -380,8 +393,8 @@ function DashboardHome() {
                         <text
                           x={x}
                           y={y}
-                          dy={chartOverview.length > 8 ? 4 : 16}
-                          textAnchor={chartOverview.length > 8 ? "end" : "middle"}
+                          dy={chartLabelsDense && !isLifetimeChart ? 4 : 16}
+                          textAnchor={chartLabelsDense && !isLifetimeChart ? "end" : "middle"}
                           fill={active ? CHART_BAR_HIGHLIGHT : "hsl(0 0% 45%)"}
                           fontSize={11}
                           fontWeight={active ? 700 : 400}
@@ -408,7 +421,7 @@ function DashboardHome() {
                     dataKey="donations_k"
                     name="Donations (₹ thousands)"
                     radius={[6, 6, 0, 0]}
-                    barSize={chartOverview.length > 8 ? 14 : 22}
+                    barSize={chartLabelCount > 10 ? 20 : chartLabelCount > 6 ? 28 : 36}
                   >
                     {chartOverview.map((entry, i) => (
                       <Cell

@@ -1,4 +1,6 @@
 import { apiJson } from "./api-client";
+import { buildUploadPayload, uploadReviewedData } from "./ai-upload-api";
+import type { ReviewDonationRow } from "./ai-upload-types";
 
 export type DashboardPeriod = "today" | "month" | "fy" | "lifetime";
 
@@ -123,4 +125,42 @@ export function formatPercentChange(value: number): { text: string; up: boolean 
   if (value === 0) return { text: "0%", up: true };
   const up = value > 0;
   return { text: `${up ? "+" : ""}${value}%`, up };
+}
+
+export type CreateDonationPayload = {
+  donor_name: string;
+  amount: number;
+  date: string;
+  payment_mode: string;
+  phone?: string;
+  pan?: string;
+  purpose?: string;
+  remarks?: string;
+  receipt_number?: string;
+};
+
+export type CreateDonationResponse = {
+  message: string;
+  donation_ids: string[];
+  records_processed: number;
+};
+
+export async function createDonation(payload: CreateDonationPayload) {
+  const row: ReviewDonationRow = {
+    id: `manual-${Date.now()}`,
+    donor_name: payload.donor_name,
+    amount: payload.amount,
+    date: payload.date,
+    payment_mode: payload.payment_mode,
+    confidence_score: 1,
+  };
+
+  const uploadPayload = buildUploadPayload([row], "manual_donation", { draft: false });
+  const res = await uploadReviewedData(uploadPayload);
+
+  return {
+    message: res.message,
+    donation_ids: res.donation_ids,
+    records_processed: res.records_processed,
+  } satisfies CreateDonationResponse;
 }

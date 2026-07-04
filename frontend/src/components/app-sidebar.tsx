@@ -27,6 +27,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
+import { useUploadDraft } from "@/hooks/use-upload-draft";
 
 const main = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -54,6 +56,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const hasUploadDraftPending = useUploadDraft();
   const isActive = (url: string) =>
     url === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(url);
 
@@ -72,7 +75,14 @@ export function AppSidebar() {
               >
                 <Link to={item.url} className="flex items-center gap-3">
                   <item.icon className="h-4 w-4 shrink-0" />
-                  <span>{item.title}</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate">{item.title}</span>
+                    {item.url === "/dashboard/upload" && hasUploadDraftPending && !collapsed ? (
+                      <Badge variant="secondary" className="ml-auto shrink-0 rounded-full px-1.5 py-0 text-[10px]">
+                        Draft
+                      </Badge>
+                    ) : null}
+                  </span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

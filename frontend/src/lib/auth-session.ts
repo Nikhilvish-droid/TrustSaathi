@@ -37,6 +37,13 @@ export function getAuthUser(): AuthUser | null {
 export function clearAuthSession() {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+  if (typeof window !== "undefined") {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("trustsaathi.upload-draft.")) {
+        localStorage.removeItem(key);
+      }
+    }
+  }
 }
 
 export function logout() {

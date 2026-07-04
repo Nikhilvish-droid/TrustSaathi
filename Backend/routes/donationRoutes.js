@@ -3,9 +3,10 @@ const router = express.Router();
 const pool = require('../config/db');
 const verifyToken = require('../middleware/authMiddleware');
 const { resolveOrganizationId, resolveOrganizationContext } = require('../utils/resolveOrganizationId');
-const { formatDateOnlyLocal, getPeriodRanges, buildLifetimeRanges } = require('../utils/dateRanges');
+const { getPeriodRanges, buildLifetimeRanges } = require('../utils/dateRanges');
 const { fetchChartOverview } = require('../utils/chartOverview');
-const { fetchOrganizationDonationTotal } = require('../utils/donationTotals');
+const { fetchOrganizationDonationTotal, fetchDonationAggregateStats, scopedDonationsWhere, buildScopedDonationParams } = require('../utils/donationTotals');
+const { upsertDonorAndInsertDonation } = require('../utils/donationInsert');
 
 async function requireOrganizationId(req, res) {
   const orgResult = await resolveOrganizationId(req);
@@ -16,7 +17,46 @@ async function requireOrganizationId(req, res) {
   return orgResult;
 }
 
-// 1. GET ALL DONATIONS (With Pagination for Production Performance)
+// 1. CREATE A DONATION (manual entry)
+router.post('/', verifyToken, async (req, res) => {
+  const organizationId = await requireOrganizationId(req, res);
+  if (!organizationId) return;
+
+  const { donor_name, amount, date, payment_mode } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const result = await upsertDonorAndInsertDonation(
+      client,
+      organizationId,
+      { donor_name, amount, date, payment_mode },
+      { confidenceScore: 1, requiresReview: false },
+    );
+
+    if (result.error) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: result.error, missing_fields: result.missing_fields });
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: 'Donation saved successfully!',
+      donation: result.donation,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Create Donation Error:', error);
+    res.status(500).json({ error: 'Failed to save donation.' });
+  } finally {
+    client.release();
+  }
+});
+
+// 2. GET ALL DONATIONS (With Pagination for Production Performance)
 router.get('/all', verifyToken, async (req, res) => {
   try {
     const organizationId = await requireOrganizationId(req, res);
@@ -50,7 +90,7 @@ router.get('/all', verifyToken, async (req, res) => {
   }
 });
 
-// 2. UPDATE ANY DONATION (With strict data validation)
+// 3. UPDATE ANY DONATION (With strict data validation)
 router.put('/update/:id', verifyToken, async (req, res) => {
   const donationId = req.params.id;
   const organizationId = await requireOrganizationId(req, res);
@@ -94,7 +134,7 @@ router.put('/update/:id', verifyToken, async (req, res) => {
   }
 });
 
-// 3. DELETE A DONATION
+// 4. DELETE A DONATION
 router.delete('/delete/:id', verifyToken, async (req, res) => {
   const donationId = req.params.id;
   const organizationId = await requireOrganizationId(req, res);
@@ -120,7 +160,7 @@ router.delete('/delete/:id', verifyToken, async (req, res) => {
   }
 });
 
-// 4. GET TOP DONORS (lifetime, org-wide)
+// 5. GET TOP DONORS (lifetime, org-wide)
 router.get('/top-donors', verifyToken, async (req, res) => {
   try {
     const organizationId = await requireOrganizationId(req, res);
@@ -159,7 +199,7 @@ router.get('/top-donors', verifyToken, async (req, res) => {
   }
 });
 
-// 5. GET RECENT DONATIONS
+// 6. GET RECENT DONATIONS
 router.get('/recent', verifyToken, async (req, res) => {
   try {
     const organizationId = await requireOrganizationId(req, res);
@@ -201,7 +241,7 @@ router.get('/recent', verifyToken, async (req, res) => {
   }
 });
 
-// 6. GET ANALYTICS SUMMARY (period-aware KPIs with comparison)
+// 7. GET ANALYTICS SUMMARY (period-aware KPIs with comparison)
 router.get('/summary', verifyToken, async (req, res) => {
   try {
     const organizationId = await requireOrganizationId(req, res);
@@ -244,9 +284,10 @@ router.get('/summary', verifyToken, async (req, res) => {
     const paymentModes = await fetchPaymentModeBreakdown(
       organizationId,
       ranges.current.start,
-      ranges.current.end
+      ranges.current.end,
+      orgName,
     );
-    const chartOverview = await fetchChartOverview(pool, organizationId, period, ranges);
+    const chartOverview = await fetchChartOverview(pool, organizationId, period, ranges, orgName);
 
     const data = {
       period,
@@ -302,7 +343,11 @@ async function fetchRegisteredDonorCount(organizationId, organizationName = null
 }
 
 async function fetchDonationStats(organizationId, startDate, endDate, organizationName = null) {
-  const totalFunds = await fetchOrganizationDonationTotal(
+  return fetchDonationAggregateStats(organizationId, organizationName, startDate, endDate);
+}
+
+async function fetchPaymentModeBreakdown(organizationId, startDate, endDate, organizationName = null) {
+  const { params, dateClause } = buildScopedDonationParams(
     organizationId,
     organizationName,
     startDate,
@@ -311,40 +356,16 @@ async function fetchDonationStats(organizationId, startDate, endDate, organizati
 
   const result = await pool.query(
     `SELECT 
-      COUNT(id) AS total_donations,
-      COUNT(DISTINCT donor_id) AS total_donors,
-      COALESCE(AVG(amount), 0) AS avg_donation,
-      COALESCE(MAX(amount), 0) AS max_donation,
-      COALESCE(MIN(NULLIF(amount, 0)), 0) AS min_donation,
-      COUNT(CASE WHEN requires_review = true THEN 1 END) AS pending_reviews
-     FROM donations 
-     WHERE organization_id = $1 AND date >= $2::date AND date <= $3::date`,
-    [organizationId, formatDateOnlyLocal(startDate), formatDateOnlyLocal(endDate)]
-  );
-
-  const stats = result.rows[0];
-  return {
-    total_funds: totalFunds,
-    total_donations: parseInt(stats.total_donations, 10),
-    total_donors: parseInt(stats.total_donors, 10),
-    avg_donation: parseFloat(stats.avg_donation),
-    max_donation: parseFloat(stats.max_donation),
-    min_donation: parseFloat(stats.min_donation),
-    pending_reviews: parseInt(stats.pending_reviews, 10),
-  };
-}
-
-async function fetchPaymentModeBreakdown(organizationId, startDate, endDate) {
-  const result = await pool.query(
-    `SELECT 
-      COALESCE(NULLIF(TRIM(payment_mode), ''), 'Unknown') AS mode,
-      COUNT(id)::int AS count,
-      COALESCE(SUM(amount), 0) AS amount
-     FROM donations
-     WHERE organization_id = $1 AND date >= $2::date AND date <= $3::date
+      COALESCE(NULLIF(TRIM(don.payment_mode), ''), 'Unknown') AS mode,
+      COUNT(don.id)::int AS count,
+      COALESCE(SUM(don.amount), 0) AS amount
+     FROM donations don
+     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
+     WHERE ${scopedDonationsWhere(1, 2)}
+       ${dateClause}
      GROUP BY mode
      ORDER BY count DESC`,
-    [organizationId, formatDateOnlyLocal(startDate), formatDateOnlyLocal(endDate)]
+    params,
   );
 
   const totalCount = result.rows.reduce((sum, row) => sum + row.count, 0);

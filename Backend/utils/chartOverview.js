@@ -1,4 +1,5 @@
 const { formatDateOnlyLocal, startOfDay, endOfDay } = require('./dateRanges');
+const { scopedDonationsWhere, buildScopedDonationParams } = require('./donationTotals');
 
 const CALENDAR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -12,7 +13,44 @@ function daysBetween(start, end) {
   return Math.ceil((endOfDay(end).getTime() - startOfDay(start).getTime()) / (1000 * 60 * 60 * 24)) + 1;
 }
 
-function buildBuckets(period, ranges) {
+function buildYearlyBuckets(start, endDayDate, now) {
+  const buckets = [];
+  let year = start.getFullYear();
+  const endYear = endDayDate.getFullYear();
+  while (year <= endYear) {
+    const yearStart = year === start.getFullYear() ? startOfDay(start) : startOfDay(new Date(year, 0, 1));
+    const yearEnd = endOfDay(new Date(year, 11, 31));
+    const bucketEnd = yearEnd > endDayDate ? endDayDate : yearEnd;
+    buckets.push({
+      label: String(year),
+      start: yearStart,
+      end: bucketEnd,
+      is_highlight: now.getFullYear() === year,
+    });
+    year += 1;
+  }
+  return buckets;
+}
+
+function buildMonthlyBuckets(start, endDayDate, now) {
+  const buckets = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (cursor <= endDayDate) {
+    const monthStart = cursor < start ? startOfDay(start) : startOfDay(cursor);
+    const monthEnd = endOfDay(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0));
+    const bucketEnd = monthEnd > endDayDate ? endDayDate : monthEnd;
+    buckets.push({
+      label: cursor.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+      start: monthStart,
+      end: bucketEnd,
+      is_highlight: now >= monthStart && now <= bucketEnd,
+    });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return buckets;
+}
+
+function buildBuckets(period, ranges, chartEndOverride = null) {
   const now = new Date();
 
   if (period === 'today') {
@@ -56,7 +94,11 @@ function buildBuckets(period, ranges) {
 
   if (period === 'lifetime') {
     const start = startOfDay(ranges.current.start);
-    const endDayDate = endOfDay(ranges.current.end);
+    const endDayDate = chartEndOverride
+      ? endOfDay(chartEndOverride)
+      : ranges.current.end
+        ? endOfDay(ranges.current.end)
+        : endOfDay(new Date());
     const spanDays = daysBetween(start, endDayDate);
 
     if (spanDays <= 1) {
@@ -70,7 +112,8 @@ function buildBuckets(period, ranges) {
       ];
     }
 
-    if (spanDays <= 45) {
+    // Short spans: daily buckets
+    if (spanDays <= 14) {
       const buckets = [];
       let cursor = start;
       while (cursor <= endDayDate) {
@@ -88,39 +131,8 @@ function buildBuckets(period, ranges) {
       return buckets;
     }
 
-    if (spanDays <= 400) {
-      const buckets = [];
-      let cursor = start;
-      let weekNum = 1;
-      while (cursor <= endDayDate) {
-        const weekEnd = endOfDay(addDays(cursor, 6));
-        const bucketEnd = weekEnd > endDayDate ? endDayDate : weekEnd;
-        buckets.push({
-          label: `Week ${weekNum}`,
-          start: startOfDay(cursor),
-          end: bucketEnd,
-          is_highlight: now >= cursor && now <= bucketEnd,
-        });
-        cursor = addDays(cursor, 7);
-        weekNum += 1;
-      }
-      return buckets;
-    }
-
-    const buckets = [];
-    let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-    while (cursor <= endDayDate) {
-      const monthEnd = endOfDay(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0));
-      const bucketEnd = monthEnd > endDayDate ? endDayDate : monthEnd;
-      buckets.push({
-        label: cursor.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
-        start: startOfDay(cursor),
-        end: bucketEnd,
-        is_highlight: now >= cursor && now <= bucketEnd,
-      });
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    }
-    return buckets;
+    // Lifetime: group by calendar year (2025, 2026, 2027, …)
+    return buildYearlyBuckets(start, endDayDate, now);
   }
 
   return [];
@@ -131,7 +143,7 @@ function getChartSubtitle(period, ranges) {
   if (period === 'month') return 'This month · 4 weeks';
   if (period === 'fy') return `Jan – Dec ${new Date().getFullYear()} · ₹ in thousands`;
   if (period === 'lifetime') {
-    return `${formatDateOnlyLocal(ranges.current.start)} to ${formatDateOnlyLocal(ranges.current.end)} · all time`;
+    return 'Yearly · all time · ₹ in thousands';
   }
   return '';
 }
@@ -147,16 +159,25 @@ function getChartBadge(period) {
   return null;
 }
 
-async function fetchBucketStats(pool, organizationId, start, end) {
+async function fetchBucketStats(pool, organizationId, organizationName, start, end) {
+  const { params, dateClause } = buildScopedDonationParams(
+    organizationId,
+    organizationName,
+    start,
+    end,
+  );
+
   const result = await pool.query(
     `SELECT 
-      COALESCE(SUM(amount), 0) AS donation_amount,
-      COUNT(id)::int AS donation_count,
-      COUNT(DISTINCT donor_id)::int AS donor_count,
-      COALESCE(AVG(amount), 0) AS avg_donation
-     FROM donations
-     WHERE organization_id = $1 AND date >= $2::date AND date <= $3::date`,
-    [organizationId, formatDateOnlyLocal(start), formatDateOnlyLocal(end)],
+      COALESCE(SUM(don.amount), 0) AS donation_amount,
+      COUNT(don.id)::int AS donation_count,
+      COUNT(DISTINCT don.donor_id)::int AS donor_count,
+      COALESCE(AVG(don.amount), 0) AS avg_donation
+     FROM donations don
+     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
+     WHERE ${scopedDonationsWhere(1, 2)}
+       ${dateClause}`,
+    params,
   );
   const row = result.rows[0];
   const donationAmount = parseFloat(row.donation_amount);
@@ -171,15 +192,35 @@ async function fetchBucketStats(pool, organizationId, start, end) {
   };
 }
 
-async function fetchChartOverview(pool, organizationId, period, ranges) {
-  const buckets = buildBuckets(period, ranges);
+async function resolveLifetimeChartEnd(pool, organizationId) {
+  const result = await pool.query(
+    'SELECT MAX(date) AS max_date FROM donations WHERE organization_id = $1',
+    [organizationId],
+  );
+  const maxDate = result.rows[0]?.max_date;
+  const today = endOfDay(new Date());
+  if (!maxDate) return today;
+  const lastDonation = endOfDay(new Date(maxDate));
+  return lastDonation > today ? lastDonation : today;
+}
+
+async function fetchChartOverview(pool, organizationId, period, ranges, organizationName = null) {
+  const chartEndOverride =
+    period === 'lifetime' ? await resolveLifetimeChartEnd(pool, organizationId) : null;
+  const buckets = buildBuckets(period, ranges, chartEndOverride);
   if (buckets.length === 0) {
     return { subtitle: '', badge: null, points: [] };
   }
 
   const points = await Promise.all(
     buckets.map(async (bucket) => {
-      const stats = await fetchBucketStats(pool, organizationId, bucket.start, bucket.end);
+      const stats = await fetchBucketStats(
+        pool,
+        organizationId,
+        organizationName,
+        bucket.start,
+        bucket.end,
+      );
       return {
         label: bucket.label,
         ...stats,
@@ -195,4 +236,4 @@ async function fetchChartOverview(pool, organizationId, period, ranges) {
   };
 }
 
-module.exports = { fetchChartOverview, buildBuckets };
+module.exports = { fetchChartOverview, buildBuckets, buildMonthlyBuckets, buildYearlyBuckets };
