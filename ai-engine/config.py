@@ -6,20 +6,24 @@ then exposes them as simple Python variables for the rest of the app.
 """
 
 import os                          # Built-in module to access environment variables
+from pathlib import Path
 from dotenv import load_dotenv     # Reads key=value pairs from a .env file and sets them as env vars
 
-# load_dotenv() searches for a file named ".env" in the current directory
-# and loads all the key=value pairs into the system's environment variables.
-# This means os.getenv("KEY") will now return the value from .env.
-load_dotenv()
+# Load the AI engine's local .env explicitly so it works even if the service
+# is started from a different working directory.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # --- Gemini API Key ---
-# os.getenv("GEMINI_API_KEY") reads the value of GEMINI_API_KEY from environment.
-# If the variable is not set, it returns None (no default = will fail at runtime if missing).
-GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY")
+# Some setups use GEMINI_API_KEY and others use GOOGLE_API_KEY.
+# We accept either, but Gemini API Studio keys should be stored here.
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 # --- Developer 2's Backend URL ---
 # This is the URL where we'll forward the extracted data.
 # os.getenv("BACKEND_API_URL", "") provides an empty string as default,
 # meaning if the variable isn't set, we just won't forward data (graceful fallback).
 BACKEND_API_URL: str = os.getenv("BACKEND_API_URL", "")
+
+# --- Backend API Key ---
+# This must match AI_SERVICE_API_KEY in the Node backend .env file.
+BACKEND_API_KEY: str = os.getenv("BACKEND_API_KEY", "")

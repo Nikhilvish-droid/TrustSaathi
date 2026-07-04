@@ -16,8 +16,7 @@ from google import genai             # Official Google Gen AI SDK
 from google.genai import types       # Types module — contains Part.from_bytes for inline data
 from config import GEMINI_API_KEY    # Our API key loaded from .env
 
-
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────
 # GEMINI CLIENT — LAZY INITIALIZATION
 # ──────────────────────────────────────────────────────────────────────────────
 
