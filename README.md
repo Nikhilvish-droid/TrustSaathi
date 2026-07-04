@@ -533,3 +533,53 @@ AI-extracted information, compliance alerts, and generated reports should be rev
 ## Project Summary
 
 > **TrustSaathi is an AI-powered digital operating system that helps trusts, temples, NGOs, and charitable organisations convert handwritten registers, receipts, PDFs, and Excel files into verified, searchable, and audit-ready digital records.**
+
+---
+
+## Local Setup
+
+This repository contains two services:
+
+1. `Backend/` - the Node.js API that handles auth, donations, and AI uploads.
+2. `ai-engine/` - the FastAPI service that extracts data from documents and forwards it to the backend.
+
+### 1. Backend Environment
+
+Create or update `Backend/.env` with:
+
+* `DATABASE_URL` - Supabase Postgres connection string from Project Settings -> Database
+* `SUPABASE_URL` - Project URL from Project Settings -> API
+* `SUPABASE_ANON_KEY` - anon key from Project Settings -> API
+* `JWT_SECRET` - long random secret for login tokens
+* `AI_SERVICE_API_KEY` - shared key used by the AI engine when calling `/api/ai/upload`
+* `FRONTEND_URL` - your frontend origin, such as `http://localhost:3000`
+
+### 2. AI Engine Environment
+
+Copy `ai-engine/.env.example` to a real `.env` file and set:
+
+* `GEMINI_API_KEY` - Google Gemini key for OCR/extraction
+* `BACKEND_API_URL` - backend upload endpoint, such as `http://localhost:5000/api/ai/upload`
+* `BACKEND_API_KEY` - must match `AI_SERVICE_API_KEY` in the backend
+
+### 3. Run Order
+
+Start the backend first, then the AI engine.
+
+```text
+Backend:
+cd Backend
+npm install
+npm run dev
+
+AI Engine:
+cd ai-engine
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+### 4. Integration Flow
+
+The AI engine accepts a file at `/extract`, standardizes the extracted data, and forwards the JSON payload to `BACKEND_API_URL` with the `x-api-key` header. The backend accepts that payload at `/api/ai/upload` only when the shared key matches `AI_SERVICE_API_KEY`.

@@ -21,6 +21,7 @@ async function proxyExtract(req, res) {
       new Blob([req.file.buffer], { type: req.file.mimetype }),
       req.file.originalname,
     );
+    formData.append('organization_id', String(orgResult));
 
     const aiResponse = await fetch(`${AI_ENGINE_URL}/extract`, {
       method: 'POST',
@@ -39,8 +40,12 @@ async function proxyExtract(req, res) {
     }
 
     if (!aiResponse.ok) {
+      const detail = payload.detail;
+      const message = Array.isArray(detail)
+        ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+        : detail || payload.error || 'AI extraction failed.';
       return res.status(aiResponse.status >= 400 ? aiResponse.status : 502).json({
-        error: payload.detail || payload.error || 'AI extraction failed.',
+        error: message,
         details: payload,
       });
     }

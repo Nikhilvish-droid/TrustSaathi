@@ -1,5 +1,6 @@
 const CRITICAL_FIELDS = ['donor_name', 'amount', 'date', 'payment_mode'];
 const LOW_CONFIDENCE = 0.85;
+const { normalizePaymentMode } = require('./paymentModes');
 
 function rowMissingFields(row) {
   const missing = [];
@@ -18,13 +19,17 @@ function enrichExtractResponse(payload) {
   const missingSet = new Set();
 
   const extracted_data = rows.map((row) => {
-    const missing = rowMissingFields(row);
+    const normalizedRow = {
+      ...row,
+      payment_mode: normalizePaymentMode(row.payment_mode),
+    };
+    const missing = rowMissingFields(normalizedRow);
     missing.forEach((f) => missingSet.add(f));
     const confidence = parseFloat(row.confidence_score);
     const lowConfidence = Number.isNaN(confidence) ? true : confidence < LOW_CONFIDENCE;
 
     return {
-      ...row,
+      ...normalizedRow,
       _missing_fields: missing,
       _low_confidence: lowConfidence,
     };

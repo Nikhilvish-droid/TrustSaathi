@@ -16,8 +16,7 @@ from google import genai             # Official Google Gen AI SDK
 from google.genai import types       # Types module — contains Part.from_bytes for inline data
 from config import GEMINI_API_KEY    # Our API key loaded from .env
 
-
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────
 # GEMINI CLIENT — LAZY INITIALIZATION
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -80,7 +79,9 @@ YOUR TASKS:
    - `donor_name` (string): The name of the donor/giver.
    - `amount` (number): The donation amount. MUST be a number, not a string. Remove any currency symbols.
    - `date` (string): The date of the donation. Return in the EXACT format as written in the document.
-   - `payment_mode` (string): How the payment was made (e.g., "Cash", "UPI", "Cheque", "Bank Transfer", "GPay", etc.). If not mentioned, use "Unknown".
+   - `payment_mode` (string): How the payment was made. Use EXACTLY one of:
+     "UPI", "Cash", "Bank Transfer", "Cheque", "Card", "Unknown".
+     Map GPay/PhonePe/Paytm/BHIM → "UPI". If not mentioned or unreadable, use "Unknown".
    - `confidence_score` (number): Your confidence in the extraction accuracy, from 0.0 (no confidence) to 1.0 (fully confident). Consider legibility of handwriting, clarity of the document, and whether any fields had to be guessed.
 
 3. **Classify** the document as one of:

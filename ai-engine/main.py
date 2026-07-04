@@ -13,10 +13,10 @@ Run with: uvicorn main:app --reload --port 8000
 """
 
 import httpx                               # Async HTTP client — used to forward data to Developer 2's API
-from fastapi import FastAPI, File, UploadFile, HTTPException  # Core FastAPI components
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form  # Core FastAPI components
 from fastapi.middleware.cors import CORSMiddleware            # Enables cross-origin requests
 
-from config import BACKEND_API_URL         # Developer 2's API URL (from .env)
+from config import BACKEND_API_URL, BACKEND_API_KEY        # Developer 2's API URL (from .env)
 
 # Import our processing services
 from services.gemini_processor import process_image_or_pdf
@@ -103,7 +103,7 @@ async def health_check():
 # ──────────────────────────────────────────────────────────────────────────────
 
 @app.post("/extract")
-async def extract_data(file: UploadFile = File(...)):
+async def extract_data(file: UploadFile = File(...),organization_id: str = Form(...)):
     """
     POST /extract — Main endpoint that accepts a file upload and returns
     standardized donation data.
@@ -209,8 +209,12 @@ async def extract_data(file: UploadFile = File(...)):
             # Date: parse any format and convert to YYYY-MM-DD
             "date": standardize_date(str(entry.get("date", ""))) if entry.get("date") else None,
 
-            # Payment mode: normalize to standard categories (UPI, CASH, etc.)
-            "payment_mode": standardize_payment_mode(str(entry.get("payment_mode", ""))),
+            # Payment mode: normalize to app dropdown values
+            "payment_mode": standardize_payment_mode(
+                str(entry.get("payment_mode")).strip()
+                if entry.get("payment_mode") not in (None, "")
+                else ""
+            ),
 
             # Confidence score: keep as-is, but ensure it's a float between 0 and 1
             "confidence_score": _clamp_confidence(entry.get("confidence_score", 0.5)),
@@ -229,6 +233,7 @@ async def extract_data(file: UploadFile = File(...)):
     response_payload = {
         "status": "success",
         "document_type": result.get("document_type", "unknown"),
+        "organization_id": organization_id,
         "extracted_data": standardized_entries,
     }
 
@@ -273,43 +278,26 @@ def _clamp_confidence(value) -> float:
 
 
 async def _forward_to_backend(payload: dict) -> None:
-    """
-    Sends the extracted data to Developer 2's backend API.
-    This is a "fire-and-forget" operation — if it fails, we log the error
-    but don't crash the main request (the user still gets their data).
-
-    How it works:
-    - httpx.AsyncClient() creates an async HTTP client (like a browser making a request).
-    - async with ... ensures the client connection is properly closed when done.
-    - client.post() sends a POST request with JSON body to the target URL.
-    - timeout=30.0 means we wait at most 30 seconds for a response.
-
-    Args:
-        payload: The JSON payload to send (our standardized extraction result).
-    """
     try:
-        # "async with" is a context manager that ensures cleanup.
-        # httpx.AsyncClient() creates a client; when the block exits,
-        # the client closes its connections (no resource leaks).
+        # 1. Print it to the terminal so we can prove it's not empty
+        print(f"🕵️ DEBUG - Sending to Backend with Key: '{BACKEND_API_KEY}'")
+        
+        headers = {
+            "x-api-key": BACKEND_API_KEY
+        }
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                BACKEND_API_URL,               # The URL to send to
-                json=payload,                   # Automatically serializes dict → JSON
-                timeout=30.0                    # Max wait time in seconds
+                BACKEND_API_URL,               
+                json=payload,                   
+                headers=headers,                # <--- MAKE SURE THIS LINE IS HERE!
+                timeout=30.0                    
             )
-
-            # response.status_code tells us if the backend accepted the data.
-            # 2xx status codes (200, 201, etc.) mean success.
+            
             if response.status_code >= 300:
-                # Print a warning but don't crash — the user still gets their data
-                print(
-                    f"⚠️ Backend forwarding returned status {response.status_code}: "
-                    f"{response.text}"
-                )
+                print(f"⚠️ Backend forwarding returned status {response.status_code}: {response.text}")
             else:
                 print(f"✅ Data forwarded to backend successfully.")
 
     except httpx.RequestError as e:
-        # RequestError covers network failures: DNS errors, connection refused, timeouts, etc.
-        # We print the error but don't raise it — this is non-critical functionality.
         print(f"⚠️ Could not forward to backend: {e}")

@@ -63,85 +63,100 @@ def standardize_date(date_string: str) -> str | None:
 # 2. PAYMENT MODE STANDARDIZATION
 # ──────────────────────────────────────────────────────────────────────────────
 
-# This dictionary maps various ways people write payment modes to our standard strings.
-# The keys are all LOWERCASE versions of common variations.
-# When we get a raw payment mode, we lowercase it and look it up here.
+# Canonical values used across TrustSaathi (frontend dropdown + database).
+CANONICAL_PAYMENT_MODES = ("UPI", "Cash", "Bank Transfer", "Cheque", "Card", "Unknown")
+
+# Maps common raw labels (lowercase) to canonical payment modes.
 PAYMENT_MODE_MAP: dict[str, str] = {
     # --- UPI variations ---
-    "upi":          "UPI",
-    "gpay":         "UPI",
-    "google pay":   "UPI",
-    "googlepay":    "UPI",
-    "phonepe":      "UPI",
-    "phone pe":     "UPI",
-    "paytm":        "UPI",
-    "paytm upi":    "UPI",
-    "bhim":         "UPI",
-    "bhim upi":     "UPI",
+    "upi": "UPI",
+    "gpay": "UPI",
+    "google pay": "UPI",
+    "googlepay": "UPI",
+    "phonepe": "UPI",
+    "phone pe": "UPI",
+    "paytm": "UPI",
+    "paytm upi": "UPI",
+    "bhim": "UPI",
+    "bhim upi": "UPI",
 
     # --- Cash variations ---
-    "cash":         "CASH",
-    "by hand":      "CASH",
-    "naqad":        "CASH",       # "naqad" is Urdu/Hindi for "cash"
-    "hand":         "CASH",
-    "in hand":      "CASH",
+    "cash": "Cash",
+    "by hand": "Cash",
+    "naqad": "Cash",
+    "hand": "Cash",
+    "in hand": "Cash",
 
     # --- Bank Transfer variations ---
-    "bank transfer":    "BANK_TRANSFER",
-    "bank":             "BANK_TRANSFER",
-    "neft":             "BANK_TRANSFER",
-    "rtgs":             "BANK_TRANSFER",
-    "imps":             "BANK_TRANSFER",
-    "wire":             "BANK_TRANSFER",
-    "wire transfer":    "BANK_TRANSFER",
-    "online":           "BANK_TRANSFER",
-    "online transfer":  "BANK_TRANSFER",
+    "bank transfer": "Bank Transfer",
+    "bank_transfer": "Bank Transfer",
+    "bank": "Bank Transfer",
+    "neft": "Bank Transfer",
+    "rtgs": "Bank Transfer",
+    "imps": "Bank Transfer",
+    "wire": "Bank Transfer",
+    "wire transfer": "Bank Transfer",
+    "online": "Bank Transfer",
+    "online transfer": "Bank Transfer",
 
     # --- Cheque variations ---
-    "cheque":       "CHEQUE",
-    "check":        "CHEQUE",
-    "chq":          "CHEQUE",
+    "cheque": "Cheque",
+    "check": "Cheque",
+    "chq": "Cheque",
+    "demand draft": "Cheque",
+    "dd": "Cheque",
+    "draft": "Cheque",
 
-    # --- Demand Draft variations ---
-    "dd":               "DEMAND_DRAFT",
-    "demand draft":     "DEMAND_DRAFT",
-    "draft":            "DEMAND_DRAFT",
+    # --- Card / digital terminal ---
+    "card": "Card",
+    "debit card": "Card",
+    "credit card": "Card",
+    "debit": "Card",
+    "credit": "Card",
+    "pos": "Card",
+    "swipe": "Card",
+
+    # --- Unknown / legacy engine values ---
+    "unknown": "Unknown",
+    "other": "Unknown",
+    "na": "Unknown",
+    "n/a": "Unknown",
 }
+
+
+def _match_payment_mode(cleaned: str) -> str | None:
+    """Exact map lookup, then substring heuristics for compound labels."""
+    if cleaned in PAYMENT_MODE_MAP:
+        return PAYMENT_MODE_MAP[cleaned]
+
+    if any(token in cleaned for token in ("upi", "gpay", "phonepe", "paytm", "bhim")):
+        return "UPI"
+    if "cash" in cleaned or "naqad" in cleaned:
+        return "Cash"
+    if any(token in cleaned for token in ("neft", "rtgs", "imps", "bank", "wire", "online transfer")):
+        return "Bank Transfer"
+    if any(token in cleaned for token in ("cheque", "check", "chq", "demand draft", "draft")):
+        return "Cheque"
+    if any(token in cleaned for token in ("card", "debit", "credit", "pos", "swipe")):
+        return "Card"
+
+    return None
 
 
 def standardize_payment_mode(raw_mode: str) -> str:
     """
-    Normalizes a raw payment mode string into one of our standard categories:
-    "UPI", "CASH", "BANK_TRANSFER", "CHEQUE", "DEMAND_DRAFT", or "OTHER".
-
-    How it works:
-    1. Strip whitespace and convert to lowercase for consistent matching.
-    2. Look up the cleaned string in our PAYMENT_MODE_MAP dictionary.
-    3. If found, return the standard value. If not found, return "OTHER".
-
-    Args:
-        raw_mode: The raw payment mode string (e.g., "Gpay", "Google Pay", "Cash").
-
-    Returns:
-        A standardized string like "UPI", "CASH", etc.
-
-    Examples:
-        standardize_payment_mode("Gpay")          → "UPI"
-        standardize_payment_mode("  google pay ")  → "UPI"
-        standardize_payment_mode("Bitcoin")        → "OTHER"
+    Normalizes a raw payment mode string into one of:
+    UPI, Cash, Bank Transfer, Cheque, Card, Unknown
     """
-    # If input is empty or not a string, default to "OTHER"
     if not raw_mode or not isinstance(raw_mode, str):
-        return "OTHER"
+        return "Unknown"
 
-    # .strip() removes leading/trailing whitespace: "  Gpay  " → "Gpay"
-    # .lower() converts to lowercase: "Gpay" → "gpay"
     cleaned = raw_mode.strip().lower()
+    if not cleaned or cleaned in {"none", "null", "-", "--"}:
+        return "Unknown"
 
-    # .get(key, default) looks up the key in the dictionary.
-    # If the key exists, it returns the mapped value (e.g., "UPI").
-    # If the key does NOT exist, it returns the default ("OTHER").
-    return PAYMENT_MODE_MAP.get(cleaned, "OTHER")
+    matched = _match_payment_mode(cleaned)
+    return matched if matched else "Unknown"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
