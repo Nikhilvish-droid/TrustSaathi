@@ -43,11 +43,13 @@ import {
 } from "@/lib/compliance-api";
 import {
   fetchDonors,
+  fetchDonorDonations,
   updateDonor,
   deleteDonor,
   donorInitial,
   type DonorFilter,
   type DonorRecord,
+  type DonorDonation,
   type ComplianceFilter,
 } from "@/lib/donors-api";
 import {
@@ -62,7 +64,7 @@ import { formatDonationDate, formatInr, updateDonation } from "@/lib/donations-a
 
 export const Route = createFileRoute("/dashboard/compliance")({
   head: () => ({
-    meta: [{ title: "Compliance Center — TrustSaathi" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Donor Audit — TrustSaathi" }, { name: "robots", content: "noindex" }],
   }),
   component: CompliancePage,
 });
@@ -121,6 +123,9 @@ function CompliancePage() {
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editPan, setEditPan] = useState("");
+  const [donorDonations, setDonorDonations] = useState<DonorDonation[]>([]);
+  const [selectedDonationId, setSelectedDonationId] = useState<string | null>(null);
+  const [donationsLoading, setDonationsLoading] = useState(false);
   const [editAmount, setEditAmount] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editPaymentMode, setEditPaymentMode] = useState("");
@@ -175,16 +180,39 @@ function CompliancePage() {
     }
   };
 
+  const selectDonation = (donation: DonorDonation) => {
+    setSelectedDonationId(donation.id);
+    setEditAmount(String(donation.amount));
+    setEditDate(toDateInputValue(donation.date));
+    setEditPaymentMode(donation.payment_mode ?? "Unknown");
+  };
+
   const openEdit = (donor: DonorRecord) => {
     setEditDonor(donor);
     setEditName(donor.name);
     setEditPhone(donor.phone ?? "");
     setEditPan(donor.pan ?? "");
-    setEditAmount(
-      donor.last_donation_amount != null ? String(donor.last_donation_amount) : "",
-    );
-    setEditDate(toDateInputValue(donor.last_donation_date));
-    setEditPaymentMode(donor.last_donation_payment_mode ?? "Unknown");
+    setDonorDonations([]);
+    setSelectedDonationId(null);
+    setEditAmount("");
+    setEditDate("");
+    setEditPaymentMode("");
+    setDonationsLoading(true);
+
+    void (async () => {
+      try {
+        const res = await fetchDonorDonations(donor.id);
+        setDonorDonations(res.donations);
+        if (res.donations.length > 0) {
+          selectDonation(res.donations[0]);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load donations.");
+        setEditDonor(null);
+      } finally {
+        setDonationsLoading(false);
+      }
+    })();
   };
 
   const handleSave = async () => {
@@ -193,7 +221,7 @@ function CompliancePage() {
       return;
     }
 
-    if (editDonor.last_donation_id) {
+    if (selectedDonationId) {
       const amountNum = Number(editAmount);
       if (!editDate.trim()) {
         toast.error("Donation date is required.");
@@ -217,8 +245,8 @@ function CompliancePage() {
         pan: editPan.trim() || null,
       });
 
-      if (editDonor.last_donation_id) {
-        await updateDonation(editDonor.last_donation_id, {
+      if (selectedDonationId) {
+        await updateDonation(selectedDonationId, {
           donor_name: editName.trim(),
           amount: Number(editAmount),
           date: editDate,
@@ -259,8 +287,8 @@ function CompliancePage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Compliance Center"
-        subtitle="Stay audit-ready. We'll tell you exactly what to fix."
+        title="Donor Audit"
+        subtitle="Review completeness, fix missing mobile & PAN, and edit donor records."
         icon={ShieldCheck}
       />
 
@@ -468,20 +496,21 @@ function CompliancePage() {
       </Card>
 
       <Dialog open={editDonor != null} onOpenChange={(open) => !open && setEditDonor(null)}>
-        <DialogContent className="rounded-2xl sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-lg">
+          <DialogHeader className="shrink-0 space-y-1.5 px-6 pb-4 pt-6">
             <DialogTitle className="font-display">Update Donor</DialogTitle>
             {editDonor && editDonor.donation_count > 1 ? (
               <p className="text-sm text-muted-foreground">
-                Amount and date apply to the most recent donation (
-                {editDonor.last_donation_date
-                  ? formatDonationDate(editDonor.last_donation_date)
-                  : "—"}
-                ).
+                Select a donation below to edit its amount, date, and payment mode.
               </p>
             ) : null}
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          {donationsLoading ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-2">
             <div className="space-y-2">
               <Label htmlFor="donor-name">Name</Label>
               <Input
@@ -513,11 +542,42 @@ function CompliancePage() {
                 />
               </div>
             </div>
-            {editDonor?.last_donation_id ? (
+            {donorDonations.length > 0 ? (
               <>
+                {donorDonations.length > 1 ? (
+                  <div className="border-t border-border pt-4">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Donations ({donorDonations.length})
+                    </p>
+                    <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-xl border border-border p-1 sm:max-h-32">
+                      {donorDonations.map((donation) => {
+                        const isSelected = donation.id === selectedDonationId;
+                        return (
+                          <button
+                            key={donation.id}
+                            type="button"
+                            onClick={() => selectDonation(donation)}
+                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                              isSelected
+                                ? "bg-primary/10 ring-1 ring-primary/30"
+                                : "hover:bg-accent"
+                            }`}
+                          >
+                            <span className="font-medium">
+                              {formatDonationDate(donation.date)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {formatInr(donation.amount)} · {donation.payment_mode}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="border-t border-border pt-4">
                   <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Last donation
+                    {donorDonations.length > 1 ? "Edit selected donation" : "Donation"}
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
@@ -562,11 +622,16 @@ function CompliancePage() {
               </>
             ) : null}
           </div>
-          <DialogFooter>
+          )}
+          <DialogFooter className="shrink-0 border-t border-border px-6 pb-6 pt-4">
             <Button variant="outline" className="rounded-full" onClick={() => setEditDonor(null)}>
               Cancel
             </Button>
-            <Button className="rounded-full" disabled={saving} onClick={() => void handleSave()}>
+            <Button
+              className="rounded-full"
+              disabled={saving || donationsLoading}
+              onClick={() => void handleSave()}
+            >
               {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               Save changes
             </Button>

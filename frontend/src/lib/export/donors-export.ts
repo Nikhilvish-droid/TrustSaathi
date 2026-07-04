@@ -38,3 +38,67 @@ export async function exportDonorsPdf(search = "", filter = "all") {
   generatePdfFromTemplate(template, payload);
   return payload;
 }
+
+export async function exportDonationReportPdf() {
+  return exportDonorsPdf();
+}
+
+export async function exportDonationReportCsv() {
+  const { getExportTemplate } = await import("./export-templates");
+  const { downloadCsvFromTemplate } = await import("./table-export");
+
+  const template = getExportTemplate("donation-report");
+  if (!template) throw new Error("Export template not found.");
+
+  const payload = await fetchDonorsExport();
+  downloadCsvFromTemplate(template, payload.rows);
+  return payload;
+}
+
+export async function exportDonationReportExcel() {
+  const { getExportTemplate } = await import("./export-templates");
+  const { downloadExcelFromTemplate } = await import("./table-export");
+
+  const template = getExportTemplate("donation-report");
+  if (!template) throw new Error("Export template not found.");
+
+  const payload = await fetchDonorsExport();
+  downloadExcelFromTemplate(template, payload.rows);
+  return payload;
+}
+
+export async function exportDonorReportPdf() {
+  const { getExportTemplate } = await import("./export-templates");
+  const { generatePdfFromTemplate } = await import("./pdf-export");
+
+  const template = getExportTemplate("donor-report");
+  if (!template) throw new Error("Export template not found.");
+
+  const payload = await fetchDonorsExport();
+  generatePdfFromTemplate(template, payload);
+  return payload;
+}
+
+export async function exportDonorReportCsv() {
+  const { getExportTemplate } = await import("./export-templates");
+  const { downloadCsvFromTemplate } = await import("./table-export");
+
+  const template = getExportTemplate("donor-report");
+  if (!template) throw new Error("Export template not found.");
+
+  const payload = await fetchDonorsExport();
+  downloadCsvFromTemplate(template, payload.rows);
+  return payload;
+}
+
+export async function exportDonorReportExcel() {
+  const { getExportTemplate } = await import("./export-templates");
+  const { downloadExcelFromTemplate } = await import("./table-export");
+
+  const template = getExportTemplate("donor-report");
+  if (!template) throw new Error("Export template not found.");
+
+  const payload = await fetchDonorsExport();
+  downloadExcelFromTemplate(template, payload.rows);
+  return payload;
+}

@@ -184,7 +184,7 @@ const processAIPayload = async (req, res) => {
 
     res.status(201).json({
       message: isDraft
-        ? 'Draft saved. Records flagged for manual review in Compliance Center.'
+        ? 'Draft saved. Records flagged for manual review in Donor Audit.'
         : 'Successfully inserted donation records.',
       record_status: isDraft ? 'draft' : 'completed',
       records_processed: processedRecords.length,

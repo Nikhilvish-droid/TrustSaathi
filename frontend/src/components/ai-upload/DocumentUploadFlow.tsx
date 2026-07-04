@@ -342,14 +342,14 @@ export function DocumentUploadFlow() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {submitResult.count} donation{submitResult.count === 1 ? "" : "s"} saved
                 {submitResult.draft
-                  ? " with missing values. View alerts in Compliance Center to complete them."
+                  ? " with missing values. Open Donor Audit to complete them."
                   : " to your database"}.
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {submitResult.draft ? (
                 <Button asChild className="rounded-full">
-                  <Link to="/dashboard/compliance">Open Compliance Center</Link>
+                  <Link to="/dashboard/compliance">Open Donor Audit</Link>
                 </Button>
               ) : null}
               <Button variant={submitResult.draft ? "outline" : "default"} className="rounded-full" onClick={reset}>

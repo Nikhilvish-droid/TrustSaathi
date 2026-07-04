@@ -44,26 +44,45 @@ function formatStatValue(stat: ExportStatDef, stats: Record<string, number>): st
   return formatNumberPdf(raw);
 }
 
-/** Compact column widths (mm) keyed by field name — keeps table from stretching edge-to-edge. */
-function columnWidthFor(field: string): number | undefined {
+/** Relative column weights — scaled to fill the full content width. */
+function columnWeightFor(field: string): number {
   switch (field) {
     case "donor_name":
-      return 38;
+      return 3;
     case "donor_type":
-      return 22;
+      return 1.5;
     case "contact":
-      return 24;
+      return 2;
     case "pan":
-      return 22;
+      return 2;
     case "date":
-      return 24;
+      return 1.8;
+    case "category":
+      return 2;
+    case "note":
+      return 3;
     case "payment_mode":
-      return 22;
+      return 1.5;
     case "amount":
-      return 24;
+      return 1.8;
     default:
-      return undefined;
+      return 2;
   }
+}
+
+function buildColumnStyles(template: ExportTemplate, tableWidth: number) {
+  const weights = template.columns.map((col) => columnWeightFor(col.field));
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+
+  return Object.fromEntries(
+    template.columns.map((col, i) => [
+      i,
+      {
+        halign: col.align === "right" ? "right" : col.align === "center" ? "center" : "left",
+        cellWidth: (weights[i] / totalWeight) * tableWidth,
+      },
+    ]),
+  );
 }
 
 export function generatePdfFromTemplate(template: ExportTemplate, payload: ExportPayload): void {
@@ -103,45 +122,35 @@ export function generatePdfFromTemplate(template: ExportTemplate, payload: Expor
   doc.setTextColor(30);
 
   const statCount = template.stats.length;
-  const statGap = 3;
-  const statBoxWidth = (pageWidth - margin * 2 - statGap * (statCount - 1)) / statCount;
+  if (statCount > 0) {
+    const statGap = 3;
+    const statBoxWidth = (pageWidth - margin * 2 - statGap * (statCount - 1)) / statCount;
 
-  template.stats.forEach((stat, i) => {
-    const x = margin + i * (statBoxWidth + statGap);
-    doc.setDrawColor(200, 195, 185);
-    doc.setFillColor(248, 246, 242);
-    doc.roundedRect(x, y, statBoxWidth, 16, 1.5, 1.5, "FD");
-    doc.setFontSize(6.5);
-    doc.setTextColor(120);
-    doc.text(stat.label.toUpperCase(), x + 3, y + 5.5);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(30);
-    doc.text(formatStatValue(stat, payload.stats), x + 3, y + 12);
-    doc.setFont("helvetica", "normal");
-  });
+    template.stats.forEach((stat, i) => {
+      const x = margin + i * (statBoxWidth + statGap);
+      doc.setDrawColor(200, 195, 185);
+      doc.setFillColor(248, 246, 242);
+      doc.roundedRect(x, y, statBoxWidth, 16, 1.5, 1.5, "FD");
+      doc.setFontSize(6.5);
+      doc.setTextColor(120);
+      doc.text(stat.label.toUpperCase(), x + 3, y + 5.5);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(30);
+      doc.text(formatStatValue(stat, payload.stats), x + 3, y + 12);
+      doc.setFont("helvetica", "normal");
+    });
 
-  y += 22;
+    y += 22;
+  }
 
   const head = [template.columns.map((c) => c.header)];
   const body = payload.rows.map((row) =>
     template.columns.map((col) => formatCellValue(row, col)),
   );
 
-  const columnStyles = Object.fromEntries(
-    template.columns.map((col, i) => {
-      const w = columnWidthFor(col.field);
-      return [
-        i,
-        {
-          halign: col.align === "right" ? "right" : col.align === "center" ? "center" : "left",
-          ...(w != null ? { cellWidth: w } : {}),
-        },
-      ];
-    }),
-  );
-
-  const tableWidth = template.columns.reduce((sum, col) => sum + (columnWidthFor(col.field) ?? 28), 0);
+  const tableWidth = pageWidth - margin * 2;
+  const columnStyles = buildColumnStyles(template, tableWidth);
 
   autoTable(doc, {
     startY: y,

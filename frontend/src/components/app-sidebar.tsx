@@ -41,7 +41,7 @@ const main = [
 ];
 
 const ops = [
-  { title: "Compliance Center", url: "/dashboard/compliance", icon: ShieldCheck },
+  { title: "Donor Audit", url: "/dashboard/compliance", icon: ShieldCheck },
   { title: "Reports", url: "/dashboard/reports", icon: FileBarChart },
   { title: "Document Upload (AI)", url: "/dashboard/upload", icon: Upload },
   { title: "Notifications", url: "/dashboard/notifications", icon: Bell },

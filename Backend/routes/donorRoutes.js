@@ -258,6 +258,45 @@ router.get('/export', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/:id/donations', verifyToken, async (req, res) => {
+  try {
+    const ctx = await requireOrganizationContext(req, res);
+    if (!ctx) return;
+
+    const { organizationId } = ctx;
+    const donorId = req.params.id;
+
+    const donorCheck = await pool.query(
+      'SELECT id FROM donors WHERE id = $1 AND organization_id = $2',
+      [donorId, organizationId],
+    );
+    if (donorCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Donor not found or unauthorized.' });
+    }
+
+    const result = await pool.query(
+      `SELECT id, amount, date, payment_mode
+       FROM donations
+       WHERE donor_id = $1 AND organization_id = $2
+       ORDER BY date DESC, id DESC`,
+      [donorId, organizationId],
+    );
+
+    res.status(200).json({
+      message: 'Donor donations fetched successfully',
+      donations: result.rows.map((row) => ({
+        id: row.id,
+        amount: parseFloat(row.amount),
+        date: row.date,
+        payment_mode: row.payment_mode,
+      })),
+    });
+  } catch (error) {
+    console.error('Donor Donations Error:', error);
+    res.status(500).json({ error: 'Failed to fetch donor donations.' });
+  }
+});
+
 router.put('/:id', verifyToken, async (req, res) => {
   try {
     const ctx = await requireOrganizationContext(req, res);

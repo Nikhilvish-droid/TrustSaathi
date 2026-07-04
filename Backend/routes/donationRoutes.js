@@ -98,8 +98,8 @@ router.put('/update/:id', verifyToken, async (req, res) => {
 
   const { donor_name, amount, payment_mode, date } = req.body;
 
-  if (!donor_name || amount === undefined || !payment_mode || !date) {
-    return res.status(400).json({ error: 'Please provide donor name, amount, payment mode, and date.' });
+  if (amount === undefined || !payment_mode || !date) {
+    return res.status(400).json({ error: 'Please provide amount, payment mode, and date.' });
   }
 
   const numericAmount = Number(amount);
@@ -111,27 +111,47 @@ router.put('/update/:id', verifyToken, async (req, res) => {
     return res.status(400).json({ error: 'Invalid date format. Please use YYYY-MM-DD.' });
   }
 
+  const client = await pool.connect();
+
   try {
-    const result = await pool.query(
-      `UPDATE donations 
-       SET donor_name = $1, amount = $2, payment_mode = $3, date = $4,
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      `UPDATE donations
+       SET amount = $1, payment_mode = $2, date = $3,
            requires_review = false, missing_fields = '{}', record_status = 'completed'
-       WHERE id = $5 AND organization_id = $6 
+       WHERE id = $4 AND organization_id = $5
        RETURNING *`,
-      [donor_name.trim(), numericAmount, payment_mode.trim(), date, donationId, organizationId]
+      [numericAmount, payment_mode.trim(), date, donationId, organizationId],
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Donation record not found or unauthorized.' });
     }
+
+    if (donor_name && String(donor_name).trim() && result.rows[0].donor_id) {
+      await client.query(
+        `UPDATE donors SET name = $1 WHERE id = $2 AND organization_id = $3`,
+        [String(donor_name).trim(), result.rows[0].donor_id, organizationId],
+      );
+    }
+
+    await client.query('COMMIT');
 
     res.status(200).json({
       message: 'Donation record updated successfully!',
       donation: result.rows[0],
     });
   } catch (error) {
+    await client.query('ROLLBACK');
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'A donor with this name already exists for your organization.' });
+    }
     console.error('Update Error:', error);
     res.status(500).json({ error: 'Failed to update donation record.' });
+  } finally {
+    client.release();
   }
 });
 

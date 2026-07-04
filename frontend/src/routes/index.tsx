@@ -154,7 +154,7 @@ function Features() {
     { icon: Users, title: "Donor Management", desc: "One place for every donor — history, PAN, repeat donations and exports." },
     { icon: Receipt, title: "Income & Expenses", desc: "Simple categories. No accounting terms. Anyone on your team can use it." },
     { icon: Landmark, title: "Trust Accounting", desc: "Cash book, bank book, trial balance and balance sheet — done for you." },
-    { icon: ShieldCheck, title: "Compliance Center", desc: "Audit readiness score, FCRA reminders and missing-document alerts." },
+    { icon: ShieldCheck, title: "Donor Audit", desc: "Audit readiness score, missing mobile & PAN alerts, and quick donor edits." },
     { icon: Upload, title: "AI Document Upload", desc: "Upload handwritten registers, receipts or PDFs — AI does the data entry." },
     { icon: Building2, title: "Assets & Inventory", desc: "Track land, gold, vehicles, furniture and temple inventory in one register." },
     { icon: BarChart3, title: "Reports", desc: "PDF, Excel or CSV — donation, donor, expense and audit reports in one click." },

@@ -62,6 +62,22 @@ export type UpdateDonorResponse = {
   donor: Pick<DonorRecord, "id" | "name" | "phone" | "pan">;
 };
 
+export type DonorDonation = {
+  id: string;
+  amount: number;
+  date: string;
+  payment_mode: string;
+};
+
+export type DonorDonationsResponse = {
+  message: string;
+  donations: DonorDonation[];
+};
+
+export function fetchDonorDonations(donorId: string) {
+  return apiJson<DonorDonationsResponse>(`/api/donors/${donorId}/donations`);
+}
+
 export async function updateDonor(id: string, payload: UpdateDonorPayload) {
   return apiJson<UpdateDonorResponse>(`/api/donors/${id}`, {
     method: "PUT",
