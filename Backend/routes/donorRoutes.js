@@ -56,25 +56,76 @@ async function fetchDonorStats(organizationId, organizationName) {
   };
 }
 
-async function buildDonorSummaries(organizationId, organizationName, search, filter) {
+function complianceFilterClause(complianceFilter, params) {
+  switch ((complianceFilter || '').toLowerCase()) {
+    case 'missing_phone':
+      return `AND (dr.phone IS NULL OR TRIM(dr.phone) = '')`;
+    case 'missing_pan':
+      return `AND (dr.pan IS NULL OR TRIM(dr.pan) = '')`;
+    case 'pending_review':
+      return `AND EXISTS (
+        SELECT 1 FROM donations don2
+        WHERE don2.donor_id = dr.id
+          AND don2.organization_id = dr.organization_id
+          AND don2.requires_review = true
+      )`;
+    default: {
+      const draftMatch = (complianceFilter || '').match(/^draft_missing_(.+)$/);
+      if (draftMatch) {
+        const field = draftMatch[1];
+        params.push(field);
+        return `AND EXISTS (
+          SELECT 1 FROM donations don2
+          WHERE don2.donor_id = dr.id
+            AND don2.organization_id = dr.organization_id
+            AND don2.requires_review = true
+            AND COALESCE(don2.record_status, 'completed') = 'draft'
+            AND $${params.length} = ANY(COALESCE(don2.missing_fields, '{}'))
+        )`;
+      }
+      return '';
+    }
+  }
+}
+
+async function buildDonorSummaries(organizationId, organizationName, search, filter, complianceFilter) {
   const params = [organizationId, organizationName];
   let searchClause = '';
   if (search) {
     params.push(`%${search}%`);
     searchClause = `AND dr.name ILIKE $${params.length}`;
   }
+  const complianceClause = complianceFilterClause(complianceFilter, params);
 
   const result = await pool.query(
     `SELECT
       dr.id,
       dr.name,
+      dr.phone,
+      dr.pan,
       COUNT(don.id)::int AS donation_count,
       COALESCE(SUM(don.amount), 0) AS lifetime_amount,
       MAX(don.date) AS last_donation_date,
-      MIN(don.date) AS first_donation_date
+      MIN(don.date) AS first_donation_date,
+      (
+        SELECT don2.id FROM donations don2
+        WHERE don2.donor_id = dr.id AND don2.organization_id = dr.organization_id
+        ORDER BY don2.date DESC, don2.id DESC LIMIT 1
+      ) AS last_donation_id,
+      (
+        SELECT don2.amount FROM donations don2
+        WHERE don2.donor_id = dr.id AND don2.organization_id = dr.organization_id
+        ORDER BY don2.date DESC, don2.id DESC LIMIT 1
+      ) AS last_donation_amount,
+      (
+        SELECT don2.payment_mode FROM donations don2
+        WHERE don2.donor_id = dr.id AND don2.organization_id = dr.organization_id
+        ORDER BY don2.date DESC, don2.id DESC LIMIT 1
+      ) AS last_donation_payment_mode
      ${donorScopeSql(1, 2)}
      ${searchClause}
-     GROUP BY dr.id, dr.name
+     ${complianceClause}
+     GROUP BY dr.id, dr.name, dr.phone, dr.pan
      ORDER BY lifetime_amount DESC, dr.name ASC`,
     params,
   );
@@ -85,12 +136,16 @@ async function buildDonorSummaries(organizationId, organizationName, search, fil
       return {
         id: row.id,
         name: row.name,
-        phone: null,
-        pan: null,
+        phone: row.phone || null,
+        pan: row.pan || null,
         donation_count: row.donation_count,
         lifetime_amount: parseFloat(row.lifetime_amount),
         last_donation_date: row.last_donation_date,
         first_donation_date: row.first_donation_date,
+        last_donation_id: row.last_donation_id || null,
+        last_donation_amount:
+          row.last_donation_amount != null ? parseFloat(row.last_donation_amount) : null,
+        last_donation_payment_mode: row.last_donation_payment_mode || null,
         category,
       };
     })
@@ -99,8 +154,8 @@ async function buildDonorSummaries(organizationId, organizationName, search, fil
     );
 }
 
-async function buildDonationLedgerRows(organizationId, organizationName, search, filter) {
-  const donors = await buildDonorSummaries(organizationId, organizationName, search, filter);
+async function buildDonationLedgerRows(organizationId, organizationName, search, filter, complianceFilter) {
+  const donors = await buildDonorSummaries(organizationId, organizationName, search, filter, complianceFilter);
   if (donors.length === 0) return [];
 
   const donorIds = donors.map((d) => d.id);
@@ -142,8 +197,15 @@ router.get('/', verifyToken, async (req, res) => {
     const { organizationId, organizationName } = ctx;
     const search = (req.query.search || '').toString().trim();
     const filter = (req.query.filter || 'all').toString().trim().toLowerCase();
+    const complianceFilter = (req.query.compliance_filter || '').toString().trim().toLowerCase();
 
-    const donors = await buildDonorSummaries(organizationId, organizationName, search, filter);
+    const donors = await buildDonorSummaries(
+      organizationId,
+      organizationName,
+      search,
+      filter,
+      complianceFilter || null,
+    );
     const stats = await fetchDonorStats(organizationId, organizationName);
 
     res.status(200).json({
@@ -166,9 +228,16 @@ router.get('/export', verifyToken, async (req, res) => {
     const { organizationId, organizationName } = ctx;
     const search = (req.query.search || '').toString().trim();
     const filter = (req.query.filter || 'all').toString().trim().toLowerCase();
+    const complianceFilter = (req.query.compliance_filter || '').toString().trim().toLowerCase();
 
     const stats = await fetchDonorStats(organizationId, organizationName);
-    const rows = await buildDonationLedgerRows(organizationId, organizationName, search, filter);
+    const rows = await buildDonationLedgerRows(
+      organizationId,
+      organizationName,
+      search,
+      filter,
+      complianceFilter || null,
+    );
 
     res.status(200).json({
       template: 'donors-ledger',
@@ -186,6 +255,91 @@ router.get('/export', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Donors Export Error:', error);
     res.status(500).json({ error: 'Failed to prepare donor export.' });
+  }
+});
+
+router.put('/:id', verifyToken, async (req, res) => {
+  try {
+    const ctx = await requireOrganizationContext(req, res);
+    if (!ctx) return;
+
+    const { organizationId } = ctx;
+    const donorId = req.params.id;
+    const { name, phone, pan } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Donor name is required.' });
+    }
+
+    const normalizedPan = pan != null && String(pan).trim() ? String(pan).trim().toUpperCase() : null;
+    const normalizedPhone = phone != null && String(phone).trim() ? String(phone).trim() : null;
+
+    const result = await pool.query(
+      `UPDATE donors
+       SET name = $1, phone = $2, pan = $3
+       WHERE id = $4 AND organization_id = $5
+       RETURNING id, name, phone, pan`,
+      [String(name).trim(), normalizedPhone, normalizedPan, donorId, organizationId],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Donor not found or unauthorized.' });
+    }
+
+    res.status(200).json({
+      message: 'Donor updated successfully',
+      donor: result.rows[0],
+    });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'A donor with this name already exists for your organization.' });
+    }
+    console.error('Donor Update Error:', error);
+    res.status(500).json({ error: 'Failed to update donor.' });
+  }
+});
+
+router.delete('/:id', verifyToken, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const ctx = await requireOrganizationContext(req, res);
+    if (!ctx) return;
+
+    const { organizationId } = ctx;
+    const donorId = req.params.id;
+
+    await client.query('BEGIN');
+
+    const donorCheck = await client.query(
+      'SELECT id FROM donors WHERE id = $1 AND organization_id = $2',
+      [donorId, organizationId],
+    );
+    if (donorCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Donor not found or unauthorized.' });
+    }
+
+    await client.query(
+      'DELETE FROM donations WHERE donor_id = $1 AND organization_id = $2',
+      [donorId, organizationId],
+    );
+    await client.query(
+      'DELETE FROM donors WHERE id = $1 AND organization_id = $2',
+      [donorId, organizationId],
+    );
+
+    await client.query('COMMIT');
+
+    res.status(200).json({
+      message: 'Donor and associated donations deleted successfully',
+      deleted_id: donorId,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Donor Delete Error:', error);
+    res.status(500).json({ error: 'Failed to delete donor.' });
+  } finally {
+    client.release();
   }
 });
 

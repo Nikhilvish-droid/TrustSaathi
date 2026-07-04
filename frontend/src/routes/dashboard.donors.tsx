@@ -197,8 +197,8 @@ function DonorsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">—</td>
-                      <td className="px-4 py-3 text-muted-foreground">—</td>
+                      <td className="px-4 py-3 text-muted-foreground">{d.phone ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{d.pan ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{d.donation_count}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {d.last_donation_date ? formatDonationDate(d.last_donation_date) : "—"}

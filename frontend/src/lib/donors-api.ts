@@ -1,8 +1,14 @@
-import { apiJson } from "./api-client";
+import { apiFetch, apiJson } from "./api-client";
 
 export type DonorCategory = "Repeat" | "New" | "Corporate" | "Trust";
 
 export type DonorFilter = "all" | "repeat" | "new" | "corporate" | "trust";
+
+export type ComplianceFilter =
+  | "missing_phone"
+  | "missing_pan"
+  | "pending_review"
+  | `draft_missing_${string}`;
 
 export type DonorRecord = {
   id: string;
@@ -13,6 +19,9 @@ export type DonorRecord = {
   lifetime_amount: number;
   last_donation_date: string | null;
   first_donation_date: string | null;
+  last_donation_id: string | null;
+  last_donation_amount: number | null;
+  last_donation_payment_mode: string | null;
   category: DonorCategory;
 };
 
@@ -29,12 +38,49 @@ export type DonorsResponse = {
   donors: DonorRecord[];
 };
 
-export function fetchDonors(search = "", filter: DonorFilter = "all") {
+export function fetchDonors(
+  search = "",
+  filter: DonorFilter = "all",
+  complianceFilter?: ComplianceFilter | null,
+) {
   const params = new URLSearchParams();
   if (search.trim()) params.set("search", search.trim());
   if (filter !== "all") params.set("filter", filter);
+  if (complianceFilter) params.set("compliance_filter", complianceFilter);
   const qs = params.toString();
   return apiJson<DonorsResponse>(`/api/donors${qs ? `?${qs}` : ""}`);
+}
+
+export type UpdateDonorPayload = {
+  name: string;
+  phone?: string | null;
+  pan?: string | null;
+};
+
+export type UpdateDonorResponse = {
+  message: string;
+  donor: Pick<DonorRecord, "id" | "name" | "phone" | "pan">;
+};
+
+export async function updateDonor(id: string, payload: UpdateDonorPayload) {
+  return apiJson<UpdateDonorResponse>(`/api/donors/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type DeleteDonorResponse = {
+  message: string;
+  deleted_id: string;
+};
+
+export async function deleteDonor(id: string) {
+  const response = await apiFetch(`/api/donors/${id}`, { method: "DELETE" });
+  const result = (await response.json()) as DeleteDonorResponse & { error?: string };
+  if (!response.ok) {
+    throw new Error(result.error ?? "Failed to delete donor.");
+  }
+  return result;
 }
 
 export function formatCompactInr(amount: number): string {

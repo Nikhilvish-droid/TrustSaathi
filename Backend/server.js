@@ -8,8 +8,10 @@ const aiRoutes = require('./routes/aiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const donationRoutes = require('./routes/donationRoutes');
 const donorRoutes = require('./routes/donorRoutes');
+const complianceRoutes = require('./routes/complianceRoutes');
 const extractRoutes = require('./routes/extractRoutes');
 const { testConnection } = require('./config/db');
+const { ensureComplianceSchema } = require('./utils/ensureSchema');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,6 +42,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/donors', donorRoutes);
+app.use('/api/compliance', complianceRoutes);
 app.use('/api/extract', extractRoutes);
 
 // Health Check Route (Used by hosting platforms to verify server is alive)
@@ -73,6 +76,7 @@ app.use((err, req, res, next) => {
 
 // Verify database connectivity before accepting requests
 testConnection()
+  .then(() => ensureComplianceSchema())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server is running and listening on port ${PORT}`);

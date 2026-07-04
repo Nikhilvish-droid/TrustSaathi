@@ -2,6 +2,81 @@ const pool = require('../config/db');
 const { resolveOrganizationId } = require('../utils/resolveOrganizationId');
 const { rowMissingFields, LOW_CONFIDENCE } = require('../utils/aiAnalysis');
 
+function parseAmount(raw) {
+  if (raw == null || raw === '') return null;
+  const amount = parseFloat(raw);
+  if (Number.isNaN(amount) || amount <= 0) return null;
+  return amount;
+}
+
+function resolveDonorName(record, rowIndex) {
+  const trimmed = record.donor_name ? String(record.donor_name).trim() : '';
+  if (trimmed) return trimmed;
+  return `Draft — Record ${rowIndex + 1}`;
+}
+
+async function upsertDonor(client, orgId, name, phone, pan) {
+  const donorResult = await client.query(
+    `INSERT INTO donors (organization_id, name, phone, pan)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (name, organization_id) DO UPDATE SET
+       name = EXCLUDED.name,
+       phone = COALESCE(EXCLUDED.phone, donors.phone),
+       pan = COALESCE(EXCLUDED.pan, donors.pan)
+     RETURNING id`,
+    [orgId, name, phone || null, pan || null],
+  );
+  return donorResult.rows[0].id;
+}
+
+async function insertDonation(client, orgId, donorId, record, options) {
+  const { isDraft, manualReviewRequired, rowIndex } = options;
+
+  const paymentMode = record.payment_mode ? String(record.payment_mode).trim() : null;
+  const date = record.date || null;
+  const amount = parseAmount(record.amount);
+  const confidence = parseFloat(record.confidence_score) || 0;
+
+  const missingFields = Array.isArray(record.missing_fields) && record.missing_fields.length > 0
+    ? record.missing_fields
+    : rowMissingFields({
+      donor_name: record.donor_name,
+      amount: record.amount,
+      date: record.date,
+      payment_mode: record.payment_mode,
+    });
+
+  const requiresReview =
+    isDraft ||
+    manualReviewRequired === true ||
+    missingFields.length > 0 ||
+    confidence < LOW_CONFIDENCE;
+
+  const recordStatus = isDraft ? 'draft' : 'completed';
+
+  const donationResult = await client.query(
+    `INSERT INTO donations (
+       organization_id, donor_id, amount, date, payment_mode,
+       confidence_score, requires_review, missing_fields, record_status
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id`,
+    [
+      orgId,
+      donorId,
+      amount,
+      date,
+      paymentMode,
+      confidence,
+      requiresReview,
+      missingFields,
+      recordStatus,
+    ],
+  );
+
+  return donationResult.rows[0].id;
+}
+
 const processAIPayload = async (req, res) => {
   const {
     status,
@@ -69,50 +144,47 @@ const processAIPayload = async (req, res) => {
 
     const processedRecords = [];
 
-    for (const record of records) {
-      const donorName = record.donor_name ? record.donor_name.trim() : 'Unknown Donor';
-      const paymentMode = record.payment_mode ? record.payment_mode.trim() : 'Unknown';
-      const date = record.date || new Date().toISOString().split('T')[0];
+    for (let i = 0; i < records.length; i += 1) {
+      const record = records[i];
+      const amount = parseAmount(record.amount);
 
-      const amount = parseFloat(record.amount);
-      const confidence = parseFloat(record.confidence_score) || 0;
-
-      if (Number.isNaN(amount) || amount <= 0) {
-        console.warn(`Skipping invalid amount for donor: ${donorName}`);
+      if (!isDraft && (amount == null)) {
+        console.warn(`Skipping row ${i + 1}: invalid amount for completed submit.`);
         continue;
       }
 
-      const donorResult = await client.query(
-        `INSERT INTO donors (organization_id, name) 
-         VALUES ($1, $2) 
-         ON CONFLICT (name, organization_id) DO UPDATE SET name = EXCLUDED.name
-         RETURNING id`,
-        [orgId, donorName],
-      );
-      const donorId = donorResult.rows[0].id;
-
-      const rowMissing = rowMissingFields(record);
-      const requiresReview =
-        isDraft ||
-        manual_review_required === true ||
-        rowMissing.length > 0 ||
-        confidence < LOW_CONFIDENCE;
-
-      const donationResult = await client.query(
-        `INSERT INTO donations (organization_id, donor_id, amount, date, payment_mode, confidence_score, requires_review) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7) 
-         RETURNING id`,
-        [orgId, donorId, amount, date, paymentMode, confidence, requiresReview],
+      const donorName = resolveDonorName(record, i);
+      const donorId = await upsertDonor(
+        client,
+        orgId,
+        donorName,
+        record.phone,
+        record.pan,
       );
 
-      processedRecords.push(donationResult.rows[0].id);
+      const donationId = await insertDonation(client, orgId, donorId, record, {
+        isDraft,
+        manualReviewRequired: manual_review_required,
+        rowIndex: i,
+      });
+
+      processedRecords.push(donationId);
+    }
+
+    if (processedRecords.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: isDraft
+          ? 'No rows to save. Add at least one row before saving as draft.'
+          : 'No valid records to insert. Check amounts and required fields.',
+      });
     }
 
     await client.query('COMMIT');
 
     res.status(201).json({
       message: isDraft
-        ? 'Draft saved. Records flagged for manual review.'
+        ? 'Draft saved. Records flagged for manual review in Compliance Center.'
         : 'Successfully inserted donation records.',
       record_status: isDraft ? 'draft' : 'completed',
       records_processed: processedRecords.length,

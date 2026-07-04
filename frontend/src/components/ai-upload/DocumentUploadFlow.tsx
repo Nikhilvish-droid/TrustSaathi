@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   AlertCircle,
   CheckCircle2,
@@ -340,12 +341,21 @@ export function DocumentUploadFlow() {
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {submitResult.count} donation{submitResult.count === 1 ? "" : "s"} saved
-                {submitResult.draft ? " and flagged for manual review" : " to your database"}.
+                {submitResult.draft
+                  ? " with missing values. View alerts in Compliance Center to complete them."
+                  : " to your database"}.
               </p>
             </div>
-            <Button className="rounded-full" onClick={reset}>
-              Upload another document
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              {submitResult.draft ? (
+                <Button asChild className="rounded-full">
+                  <Link to="/dashboard/compliance">Open Compliance Center</Link>
+                </Button>
+              ) : null}
+              <Button variant={submitResult.draft ? "outline" : "default"} className="rounded-full" onClick={reset}>
+                Upload another document
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

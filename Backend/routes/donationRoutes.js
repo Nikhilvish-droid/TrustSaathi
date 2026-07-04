@@ -114,7 +114,8 @@ router.put('/update/:id', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE donations 
-       SET donor_name = $1, amount = $2, payment_mode = $3, date = $4, requires_review = false 
+       SET donor_name = $1, amount = $2, payment_mode = $3, date = $4,
+           requires_review = false, missing_fields = '{}', record_status = 'completed'
        WHERE id = $5 AND organization_id = $6 
        RETURNING *`,
       [donor_name.trim(), numericAmount, payment_mode.trim(), date, donationId, organizationId]

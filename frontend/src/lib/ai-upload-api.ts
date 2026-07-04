@@ -61,14 +61,29 @@ export function validateRowsForSubmit(rows: ReviewDonationRow[]): string | null 
   return null;
 }
 
+function computeMissingFields(row: ReviewDonationRow): string[] {
+  const missing: string[] = [];
+  for (const field of CRITICAL_FIELDS) {
+    if (fieldEmpty(row, field)) missing.push(field);
+  }
+  return missing;
+}
+
 export function toUploadRows(rows: ReviewDonationRow[]) {
-  return rows.map((row) => ({
-    donor_name: String(row.donor_name ?? '').trim(),
-    amount: Number(row.amount),
-    date: row.date,
-    payment_mode: row.payment_mode,
-    confidence_score: row.confidence_score,
-  }));
+  return rows.map((row) => {
+    const missing = computeMissingFields(row);
+    return {
+      donor_name: row.donor_name?.trim() || null,
+      amount:
+        row.amount == null || Number(row.amount) <= 0
+          ? null
+          : Number(row.amount),
+      date: row.date || null,
+      payment_mode: row.payment_mode?.trim() || null,
+      confidence_score: row.confidence_score,
+      missing_fields: missing,
+    };
+  });
 }
 
 /** Stage 1 — upload file to AI via backend proxy POST /api/extract */

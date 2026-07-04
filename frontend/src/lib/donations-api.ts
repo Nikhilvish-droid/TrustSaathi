@@ -145,6 +145,30 @@ export type CreateDonationResponse = {
   records_processed: number;
 };
 
+export type UpdateDonationPayload = {
+  donor_name: string;
+  amount: number;
+  date: string;
+  payment_mode: string;
+};
+
+export type UpdateDonationResponse = {
+  message: string;
+  donation: {
+    id: string;
+    amount: number;
+    date: string;
+    payment_mode: string;
+  };
+};
+
+export async function updateDonation(id: string, payload: UpdateDonationPayload) {
+  return apiJson<UpdateDonationResponse>(`/api/donations/update/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createDonation(payload: CreateDonationPayload) {
   const row: ReviewDonationRow = {
     id: `manual-${Date.now()}`,

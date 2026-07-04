@@ -33,11 +33,14 @@ export type ReviewDonationRow = ExtractedDonationRow & {
 export type RecordStatus = 'completed' | 'draft';
 
 export type UploadDonationRow = {
-  donor_name: string;
-  amount: number;
+  donor_name: string | null;
+  amount: number | null;
   date: string | null;
   payment_mode: string | null;
   confidence_score?: number;
+  missing_fields?: string[];
+  phone?: string | null;
+  pan?: string | null;
 };
 
 export type UploadPayload = {
