@@ -27,3 +27,11 @@ BACKEND_API_URL: str = os.getenv("BACKEND_API_URL", "")
 # --- Backend API Key ---
 # This must match AI_SERVICE_API_KEY in the Node backend .env file.
 BACKEND_API_KEY: str = os.getenv("BACKEND_API_KEY", "")
+
+# --- Gemini model ---
+# Primary model + comma-separated fallbacks when Google returns 503 high demand.
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_FALLBACK_MODELS: str = os.getenv(
+    "GEMINI_FALLBACK_MODELS",
+    "gemini-1.5-flash,gemini-2.0-flash-lite",
+)

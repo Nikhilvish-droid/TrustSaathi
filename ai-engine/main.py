@@ -175,18 +175,22 @@ async def extract_data(file: UploadFile = File(...),organization_id: str = Form(
             result = process_excel_or_csv(file_bytes, file.filename)
 
     except ValueError as e:
-        # ValueError is raised by our processors for known issues
-        # (e.g., Gemini returned invalid JSON, or no columns could be mapped)
-        raise HTTPException(status_code=422, detail=str(e))
-        # 422 = "Unprocessable Entity" — the file was received but couldn't be processed
+        message = str(e)
+        if "temporarily overloaded" in message.lower():
+            raise HTTPException(status_code=503, detail=message)
+        raise HTTPException(status_code=422, detail=message)
 
     except Exception as e:
-        # Catch any unexpected error (API failure, network issue, etc.)
+        message = str(e)
+        if any(token in message.lower() for token in ("503", "unavailable", "high demand", "overloaded")):
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini is temporarily overloaded. Please wait a minute and try again.",
+            )
         raise HTTPException(
             status_code=500,
-            detail=f"Processing failed: {str(e)}"
+            detail=f"Processing failed: {message}",
         )
-        # 500 = "Internal Server Error" — something went wrong on our side
 
     # ── Step 4: Standardize the Extracted Data ──
 

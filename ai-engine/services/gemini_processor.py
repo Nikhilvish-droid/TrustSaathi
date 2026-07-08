@@ -11,10 +11,11 @@ Gemini 1.5 Flash model for:
 It uses the official `google-genai` SDK with inline byte uploads.
 """
 
-import json                         # To parse the JSON string that Gemini returns
-from google import genai             # Official Google Gen AI SDK
-from google.genai import types       # Types module — contains Part.from_bytes for inline data
-from config import GEMINI_API_KEY    # Our API key loaded from .env
+import json
+import time
+from google import genai
+from google.genai import types
+from config import GEMINI_API_KEY, GEMINI_MODEL, GEMINI_FALLBACK_MODELS
 
 # ─────────────────
 # GEMINI CLIENT — LAZY INITIALIZATION
@@ -59,6 +60,52 @@ def _get_client() -> genai.Client:
         _client = genai.Client(api_key=GEMINI_API_KEY)
 
     return _client
+
+
+def _model_candidates() -> list[str]:
+    models: list[str] = []
+    for name in [GEMINI_MODEL, *GEMINI_FALLBACK_MODELS.split(",")]:
+        cleaned = name.strip()
+        if cleaned and cleaned not in models:
+            models.append(cleaned)
+    return models or ["gemini-2.0-flash", "gemini-1.5-flash"]
+
+
+def _is_retryable_gemini_error(exc: Exception) -> bool:
+    if hasattr(exc, "code") and getattr(exc, "code", None) in {429, 503}:
+        return True
+    if hasattr(exc, "status_code") and getattr(exc, "status_code", None) in {429, 503}:
+        return True
+    msg = str(exc).lower()
+    return any(
+        token in msg
+        for token in ("503", "429", "unavailable", "high demand", "resource exhausted", "overloaded")
+    )
+
+
+def _generate_with_fallback(client: genai.Client, contents: list) -> str:
+    """Try primary + fallback Gemini models with short retries on 503/429."""
+    backoff_seconds = [2, 4, 8]
+    last_error: Exception | None = None
+
+    for model in _model_candidates():
+        for attempt, delay in enumerate(backoff_seconds):
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                )
+                return response.text
+            except Exception as exc:
+                last_error = exc
+                if not _is_retryable_gemini_error(exc):
+                    raise
+                if attempt < len(backoff_seconds) - 1:
+                    time.sleep(delay)
+
+    raise ValueError(
+        "Gemini is temporarily overloaded. Please wait a minute and try again."
+    ) from last_error
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -166,14 +213,10 @@ def process_image_or_pdf(file_bytes: bytes, mime_type: str) -> dict:
     #   We send the file first, then our text instructions.
     #   The model sees both and generates a response based on both.
     client = _get_client()
-    response = client.models.generate_content(
-        model="gemini-3.5-flash",       # Fast multimodal model
-        contents=[file_part, EXTRACTION_PROMPT]  # Image + instructions
-    )
+    raw_text = _generate_with_fallback(client, [file_part, EXTRACTION_PROMPT])
 
     # ── Step 3: Extract the text from the response ──
-    # response.text contains the model's text output (should be JSON).
-    raw_text = response.text
+    # raw_text contains the model's text output (should be JSON).
 
     # ── Step 4: Clean up the response ──
     # Sometimes the model wraps its JSON in markdown code fences like:
