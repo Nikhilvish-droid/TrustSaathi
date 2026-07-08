@@ -2,6 +2,35 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ExportColumnDef, ExportPayload, ExportStatDef, ExportTemplate } from "./export-templates";
 
+const BRAND_NAME = "TrustSaathi";
+const BRAND_TAGLINE = "Temple & Trust OS";
+const LOGO_PATH = "/trustsaathi-logo.png";
+
+let cachedLogoDataUrl: string | null | undefined;
+
+async function loadBrandLogoDataUrl(): Promise<string | null> {
+  if (cachedLogoDataUrl !== undefined) return cachedLogoDataUrl;
+
+  try {
+    const response = await fetch(LOGO_PATH);
+    if (!response.ok) {
+      cachedLogoDataUrl = null;
+      return null;
+    }
+    const blob = await response.blob();
+    cachedLogoDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    return cachedLogoDataUrl;
+  } catch {
+    cachedLogoDataUrl = null;
+    return null;
+  }
+}
+
 /** ASCII-safe INR — jsPDF Helvetica cannot render the ₹ glyph. */
 function formatInrPdf(value: number): string {
   const n = Math.round(Number(value) || 0);
@@ -85,17 +114,48 @@ function buildColumnStyles(template: ExportTemplate, tableWidth: number) {
   );
 }
 
-export function generatePdfFromTemplate(template: ExportTemplate, payload: ExportPayload): void {
+export async function generatePdfFromTemplate(
+  template: ExportTemplate,
+  payload: ExportPayload,
+): Promise<void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
-  let y = 18;
+  let y = 14;
 
+  const logoSize = 12;
+  const logoDataUrl = await loadBrandLogoDataUrl();
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", margin, y - 2, logoSize, logoSize);
+  } else {
+    // Fallback mark if the logo asset fails to load
+    doc.setFillColor(181, 130, 60);
+    doc.roundedRect(margin, y - 2, logoSize, logoSize, 2.5, 2.5, "F");
+  }
+
+  const brandX = margin + logoSize + 3.5;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
+  doc.setFontSize(14);
+  doc.setTextColor(30);
+  doc.text(BRAND_NAME, brandX, y + 3.5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(120);
+  doc.text(BRAND_TAGLINE, brandX, y + 8.5);
+
+  y += logoSize + 6;
+  doc.setDrawColor(220, 215, 205);
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageWidth - margin, y);
+
+  y += 8;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(30);
   doc.text(template.title, margin, y);
 
-  y += 7;
+  y += 6;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(100);
@@ -184,7 +244,7 @@ export function generatePdfFromTemplate(template: ExportTemplate, payload: Expor
   const footerY = doc.internal.pageSize.getHeight() - 8;
   doc.setFontSize(7);
   doc.setTextColor(140);
-  doc.text("TrustSaathi - Made in India", margin, footerY);
+  doc.text(`${BRAND_NAME} - Made in India`, margin, footerY);
 
   const stamp = new Date().toISOString().slice(0, 10);
   doc.save(`${template.filename}-${stamp}.pdf`);

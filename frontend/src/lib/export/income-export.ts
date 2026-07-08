@@ -33,7 +33,7 @@ export async function exportIncomeReportPdf() {
   if (!template) throw new Error("Export template not found.");
 
   const payload = await fetchIncomeExport();
-  generatePdfFromTemplate(template, payload);
+  await generatePdfFromTemplate(template, payload);
   return payload;
 }
 

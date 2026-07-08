@@ -33,7 +33,7 @@ export async function exportExpenseReportPdf() {
   if (!template) throw new Error("Export template not found.");
 
   const payload = await fetchExpenseExport();
-  generatePdfFromTemplate(template, payload);
+  await generatePdfFromTemplate(template, payload);
   return payload;
 }
 

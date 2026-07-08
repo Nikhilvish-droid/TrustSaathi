@@ -35,7 +35,7 @@ export async function exportDonorsPdf(search = "", filter = "all") {
   if (!template) throw new Error("Export template not found.");
 
   const payload = await fetchDonorsExport(search, filter);
-  generatePdfFromTemplate(template, payload);
+  await generatePdfFromTemplate(template, payload);
   return payload;
 }
 
@@ -75,7 +75,7 @@ export async function exportDonorReportPdf() {
   if (!template) throw new Error("Export template not found.");
 
   const payload = await fetchDonorsExport();
-  generatePdfFromTemplate(template, payload);
+  await generatePdfFromTemplate(template, payload);
   return payload;
 }
 

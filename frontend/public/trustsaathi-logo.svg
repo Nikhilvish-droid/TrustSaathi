@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <rect width="256" height="256" rx="56" fill="#B5823C"/>
+  <g stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Flower2-style petals -->
+    <circle cx="128" cy="78" r="22"/>
+    <circle cx="168" cy="118" r="22"/>
+    <circle cx="128" cy="158" r="22"/>
+    <circle cx="88" cy="118" r="22"/>
+    <circle cx="128" cy="118" r="14"/>
+    <!-- Stem -->
+    <path d="M128 180 V210"/>
+    <!-- Leaves -->
+    <path d="M128 198 C108 188 88 192 78 206"/>
+    <path d="M128 198 C148 188 168 192 178 206"/>
+  </g>
+</svg>
