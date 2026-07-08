@@ -1,10 +1,10 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import brandLogoUrl from "../../assets/trustsaathi-logo.png";
 import type { ExportColumnDef, ExportPayload, ExportStatDef, ExportTemplate } from "./export-templates";
 
 const BRAND_NAME = "TrustSaathi";
 const BRAND_TAGLINE = "Temple & Trust OS";
-const LOGO_PATH = "/trustsaathi-logo.png";
 
 let cachedLogoDataUrl: string | null | undefined;
 
@@ -12,23 +12,48 @@ async function loadBrandLogoDataUrl(): Promise<string | null> {
   if (cachedLogoDataUrl !== undefined) return cachedLogoDataUrl;
 
   try {
-    const response = await fetch(LOGO_PATH);
-    if (!response.ok) {
-      cachedLogoDataUrl = null;
-      return null;
+    // Prefer Vite-bundled asset (works in prod), then public path fallback.
+    const candidates = [brandLogoUrl, "/trustsaathi-logo.png", "/favicon.png"];
+    for (const src of candidates) {
+      const response = await fetch(src);
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      cachedLogoDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      return cachedLogoDataUrl;
     }
-    const blob = await response.blob();
-    cachedLogoDataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-    return cachedLogoDataUrl;
+    cachedLogoDataUrl = null;
+    return null;
   } catch {
     cachedLogoDataUrl = null;
     return null;
   }
+}
+
+/** Draws the TrustSaathi flower mark if PNG embedding fails. */
+function drawBrandMarkFallback(doc: jsPDF, x: number, y: number, size: number): void {
+  doc.setFillColor(181, 130, 60);
+  doc.roundedRect(x, y, size, size, 2.5, 2.5, "F");
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.7);
+  const cx = x + size / 2;
+  const cy = y + size * 0.42;
+  const pr = size * 0.12;
+  const dist = size * 0.18;
+  for (const [dx, dy] of [
+    [0, -dist],
+    [dist, 0],
+    [0, dist],
+    [-dist, 0],
+  ] as const) {
+    doc.circle(cx + dx, cy + dy, pr, "S");
+  }
+  doc.circle(cx, cy, size * 0.07, "S");
+  doc.line(cx, cy + dist + 1, cx, y + size * 0.82);
 }
 
 /** ASCII-safe INR — jsPDF Helvetica cannot render the ₹ glyph. */
@@ -126,11 +151,13 @@ export async function generatePdfFromTemplate(
   const logoSize = 12;
   const logoDataUrl = await loadBrandLogoDataUrl();
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", margin, y - 2, logoSize, logoSize);
+    try {
+      doc.addImage(logoDataUrl, "PNG", margin, y - 2, logoSize, logoSize);
+    } catch {
+      drawBrandMarkFallback(doc, margin, y - 2, logoSize);
+    }
   } else {
-    // Fallback mark if the logo asset fails to load
-    doc.setFillColor(181, 130, 60);
-    doc.roundedRect(margin, y - 2, logoSize, logoSize, 2.5, 2.5, "F");
+    drawBrandMarkFallback(doc, margin, y - 2, logoSize);
   }
 
   const brandX = margin + logoSize + 3.5;

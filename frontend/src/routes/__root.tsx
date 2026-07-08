@@ -93,10 +93,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:site_name", content: "TrustSaathi" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@TrustSaathi" },
+      { name: "twitter:image", content: "/trustsaathi-logo.png" },
+      { property: "og:image", content: "/trustsaathi-logo.png" },
       { name: "theme-color", content: "#B7791F" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
