@@ -17,7 +17,16 @@ export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
   },
 });
 
+/** Public site origin for OAuth callbacks — set on Vercel to your production URL. */
+function getSiteOrigin(): string {
+  const fromEnv = import.meta.env.VITE_SITE_URL?.trim().replace(/\/+$/, "");
+  if (fromEnv) return fromEnv;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+}
+
 export function getAuthCallbackUrl() {
-  if (typeof window === "undefined") return "/auth/callback";
-  return `${window.location.origin}/auth/callback`;
+  const origin = getSiteOrigin();
+  if (!origin) return "/auth/callback";
+  return `${origin}/auth/callback`;
 }
