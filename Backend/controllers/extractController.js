@@ -1,5 +1,4 @@
 require('dotenv').config();
-const FormData = require('form-data');
 const { resolveOrganizationId } = require('../utils/resolveOrganizationId');
 const { enrichExtractResponse } = require('../utils/aiAnalysis');
 
@@ -26,6 +25,16 @@ function normalizeAiPayload(payload) {
     return { ...payload, extracted_data: payload.entries };
   }
   return payload;
+}
+
+function buildAiMultipartBody(file, organizationId) {
+  const form = new FormData();
+  const fileBlob = new Blob([file.buffer], {
+    type: file.mimetype || 'application/octet-stream',
+  });
+  form.append('file', fileBlob, file.originalname);
+  form.append('organization_id', organizationId);
+  return form;
 }
 
 async function wakeAiEngine() {
@@ -59,17 +68,9 @@ async function proxyExtract(req, res) {
 
     await wakeAiEngine();
 
-    const form = new FormData();
-    form.append('file', req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype || 'application/octet-stream',
-    });
-    form.append('organization_id', String(orgResult));
-
     const aiResponse = await fetch(`${AI_ENGINE_URL}/extract`, {
       method: 'POST',
-      headers: form.getHeaders(),
-      body: form,
+      body: buildAiMultipartBody(req.file, String(orgResult)),
       signal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS),
     });
 
@@ -87,9 +88,18 @@ async function proxyExtract(req, res) {
 
     if (!aiResponse.ok) {
       const detail = payload.detail;
-      const message = Array.isArray(detail)
-        ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
-        : detail || payload.error || 'AI extraction failed.';
+      let message =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+            : detail || payload.error || 'AI extraction failed.';
+
+      if (message.toLowerCase().includes('parsing the body')) {
+        message =
+          'AI engine could not read the uploaded file. Retry once; if it persists, check AI_ENGINE_URL and AI service logs.';
+      }
+
       return res.status(aiResponse.status >= 400 ? aiResponse.status : 502).json({
         error: message,
         details: payload,
