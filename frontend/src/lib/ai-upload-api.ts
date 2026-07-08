@@ -98,7 +98,18 @@ export async function extractDocument(file: File, organizationId?: string): Prom
     body: formData,
   });
 
-  const result = (await response.json()) as ExtractResponse & { error?: string };
+  const raw = await response.text();
+  let result: ExtractResponse & { error?: string };
+  try {
+    result = JSON.parse(raw) as ExtractResponse & { error?: string };
+  } catch {
+    throw new ApiError(
+      response.status,
+      raw.trimStart().startsWith('<')
+        ? 'Server returned HTML instead of JSON. Check VITE_API_URL points to your Render backend.'
+        : 'Server returned an invalid JSON response.',
+    );
+  }
 
   if (!response.ok) {
     throw new ApiError(response.status, result.error ?? 'Extraction failed.');
