@@ -68,7 +68,16 @@ def _model_candidates() -> list[str]:
         cleaned = name.strip()
         if cleaned and cleaned not in models:
             models.append(cleaned)
-    return models or ["gemini-2.0-flash", "gemini-1.5-flash"]
+    return models or ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.1-flash-lite"]
+
+
+def _is_model_not_found_error(exc: Exception) -> bool:
+    if hasattr(exc, "code") and getattr(exc, "code", None) == 404:
+        return True
+    if hasattr(exc, "status_code") and getattr(exc, "status_code", None) == 404:
+        return True
+    msg = str(exc).lower()
+    return "404" in msg or ("not found" in msg and "model" in msg)
 
 
 def _is_retryable_gemini_error(exc: Exception) -> bool:
@@ -98,10 +107,14 @@ def _generate_with_fallback(client: genai.Client, contents: list) -> str:
                 return response.text
             except Exception as exc:
                 last_error = exc
-                if not _is_retryable_gemini_error(exc):
-                    raise
-                if attempt < len(backoff_seconds) - 1:
-                    time.sleep(delay)
+                if _is_model_not_found_error(exc):
+                    break
+                if _is_retryable_gemini_error(exc):
+                    if attempt < len(backoff_seconds) - 1:
+                        time.sleep(delay)
+                        continue
+                    break
+                raise
 
     raise ValueError(
         "Gemini is temporarily overloaded. Please wait a minute and try again."

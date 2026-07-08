@@ -30,8 +30,9 @@ BACKEND_API_KEY: str = os.getenv("BACKEND_API_KEY", "")
 
 # --- Gemini model ---
 # Primary model + comma-separated fallbacks when Google returns 503 high demand.
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+# Older models (gemini-1.5-*, gemini-2.0-*) return 404 — do not use them.
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 GEMINI_FALLBACK_MODELS: str = os.getenv(
     "GEMINI_FALLBACK_MODELS",
-    "gemini-1.5-flash,gemini-2.0-flash-lite",
+    "gemini-2.5-flash,gemini-3.1-flash-lite,gemini-2.5-flash-lite",
 )
