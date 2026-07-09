@@ -1,7 +1,11 @@
 function inferDonorCategory(name, donationCount, firstDonationDate) {
-  const lower = name.toLowerCase();
+  const lower = name.toLocaleLowerCase('en-US');
   if (lower.includes('trust')) return 'Trust';
-  if (/\b(foundation|charitable|sanstha|ngo| ltd|pvt|private limited)\b/.test(lower)) {
+  if (
+    ['foundation', 'charitable', 'sanstha', 'ngo', ' ltd', 'pvt', 'private limited'].some((kw) =>
+      lower.includes(kw),
+    )
+  ) {
     return 'Corporate';
   }
   if (donationCount > 1) return 'Repeat';
@@ -42,12 +46,11 @@ function matchesFilter(category, donationCount, firstDonationDate, filter) {
   }
 }
 
-function donorScopeSql(orgParamIndex, orgNameParamIndex) {
+function donorScopeSql(orgParamIndex) {
   return `
     FROM donors dr
     INNER JOIN donations don ON don.donor_id = dr.id AND don.organization_id = dr.organization_id
     WHERE dr.organization_id = $${orgParamIndex}
-      AND ($${orgNameParamIndex}::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($${orgNameParamIndex})))
   `;
 }
 

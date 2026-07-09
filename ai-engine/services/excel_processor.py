@@ -14,6 +14,7 @@ to our standard field names.
 """
 
 import io                          # For wrapping bytes into file-like objects (BytesIO)
+import unicodedata
 import pandas as pd                # The main library for reading/manipulating tabular data
 from rapidfuzz import fuzz, process  # Fuzzy string matching for column name mapping
 
@@ -29,22 +30,26 @@ COLUMN_CANDIDATES: dict[str, list[str]] = {
     "donor_name": [
         "donor name", "name", "donor", "name of giver", "giver name",
         "donated by", "given by", "contributor", "contributor name",
-        "daan data naam", "naam",  # Hindi transliterations
+        "daan data naam", "naam",
+        "नाव", "दानदाता", "दाता", "दानदात्याचे नाव", "નામ", "દાનકર્તા",
     ],
     "amount": [
         "amount", "donation", "donation amount", "rs", "rupees",
         "amount rs", "amount (rs)", "amount (₹)", "rashi", "daan rashi",
         "contribution", "sum", "total",
+        "राशि", "दान राशि", "रक्कम", "રકમ", "દાન રકમ",
     ],
     "date": [
         "date", "donation date", "payment date", "dt", "dated",
-        "tarikh", "daan tarikh",  # Hindi/Urdu transliterations
+        "tarikh", "daan tarikh",
         "received on", "received date",
+        "तारीख", "दिनांक", "તારીખ",
     ],
     "payment_mode": [
         "payment mode", "mode", "mode of payment", "payment type",
         "type", "method", "payment method", "paid by", "paid via",
-        "madhyam",  # Hindi for "medium/mode"
+        "madhyam",
+        "भुगतान", "पेमेंट", "चुकवणी", "ચુકવણી",
     ],
 }
 
@@ -52,6 +57,10 @@ COLUMN_CANDIDATES: dict[str, list[str]] = {
 # 65 is intentionally lower than the deduplication threshold (85)
 # because column headers can be very abbreviated (e.g., "Rs" for "amount").
 COLUMN_MATCH_THRESHOLD: int = 65
+
+
+def _normalize_column_header(value: str) -> str:
+    return unicodedata.normalize("NFC", str(value).strip().casefold())
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -99,8 +108,8 @@ def map_columns(actual_columns: list[str]) -> dict[str, str]:
                 # because column headers might have words in different orders:
                 # "Name Donor" vs "Donor Name" → 100% match.
                 score = fuzz.token_sort_ratio(
-                    actual_col.lower().strip(),   # Normalize actual column name
-                    candidate.lower().strip()     # Normalize candidate name
+                    _normalize_column_header(actual_col),
+                    _normalize_column_header(candidate),
                 )
 
                 # Keep track of the best match for this standard field

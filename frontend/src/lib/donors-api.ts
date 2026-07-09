@@ -117,8 +117,9 @@ export function formatCompactInr(amount: number): string {
 }
 
 export function donorInitial(name: string): string {
-  const skip = new Set(["shri", "smt", "mr", "mrs", "ms", "dr"]);
+  const skip = new Set(["shri", "smt", "mr", "mrs", "ms", "dr", "श्री", "श्रीमती"]);
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  const meaningful = parts.find((p) => !skip.has(p.toLowerCase()));
-  return (meaningful ?? parts[0] ?? "?")[0].toUpperCase();
+  const meaningful = parts.find((p) => !skip.has(p.toLocaleLowerCase("en-US")));
+  const target = meaningful ?? parts[0] ?? "?";
+  return [...target][0] ?? "?";
 }

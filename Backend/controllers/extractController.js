@@ -2,16 +2,37 @@ require('dotenv').config();
 const { resolveOrganizationId } = require('../utils/resolveOrganizationId');
 const { enrichExtractResponse } = require('../utils/aiAnalysis');
 
-const AI_ENGINE_URL = (process.env.AI_ENGINE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const PRODUCTION_AI_ENGINE_URL = 'https://trustsaathi-ai.onrender.com';
+
+function resolveAiEngineUrl() {
+  let raw =
+    process.env.AI_ENGINE_URL?.trim() ||
+    (process.env.NODE_ENV === 'production' ? PRODUCTION_AI_ENGINE_URL : 'http://localhost:8000');
+
+  raw = raw.replace(/\/extract\/?$/i, '').replace(/\/+$/, '');
+
+  // Common misconfig: backend URL instead of the dedicated AI engine service.
+  if (/trustsaathi\.onrender\.com$/i.test(raw) && !/trustsaathi-ai/i.test(raw)) {
+    console.warn(
+      `AI_ENGINE_URL (${raw}) looks like the backend host; using ${PRODUCTION_AI_ENGINE_URL} instead.`,
+    );
+    return PRODUCTION_AI_ENGINE_URL;
+  }
+
+  return raw;
+}
+
+const AI_ENGINE_URL = resolveAiEngineUrl();
 const EXTRACT_TIMEOUT_MS = 180_000;
 
 function describeNonJsonResponse(status, rawText) {
   const snippet = rawText.slice(0, 280).replace(/\s+/g, ' ').trim();
   if (rawText.trimStart().startsWith('<')) {
-    return (
-      'AI extraction service returned HTML instead of JSON. ' +
-      'Verify AI_ENGINE_URL on Render points to your live AI service and that the service is awake.'
-    );
+    const hint =
+      process.env.NODE_ENV === 'development'
+        ? `Backend is calling ${AI_ENGINE_URL}/extract. Start the ai-engine locally (port 8000) or set AI_ENGINE_URL in Backend/.env.`
+        : 'Verify AI_ENGINE_URL on Render is https://trustsaathi-ai.onrender.com (root URL only) and that the AI service is awake.';
+    return `AI extraction service returned HTML instead of JSON. ${hint}`;
   }
   if (status === 404) {
     return 'AI extraction endpoint not found. Check AI_ENGINE_URL ends at the service host (no /extract path).';

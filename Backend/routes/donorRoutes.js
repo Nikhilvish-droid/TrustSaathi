@@ -6,6 +6,7 @@ const { resolveOrganizationContext } = require('../utils/resolveOrganizationId')
 const { formatDateOnlyLocal } = require('../utils/dateRanges');
 const { fetchOrganizationDonationTotal } = require('../utils/donationTotals');
 const { inferDonorCategory, matchesFilter, donorScopeSql } = require('../utils/donorHelpers');
+const { normalizeDonorName } = require('../utils/donorName');
 
 async function requireOrganizationContext(req, res) {
   const ctx = await resolveOrganizationContext(req);
@@ -18,8 +19,8 @@ async function requireOrganizationContext(req, res) {
 
 async function fetchDonorStats(organizationId, organizationName) {
   const monthStart = formatDateOnlyLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const scope = donorScopeSql(1, 2);
-  const params = [organizationId, organizationName];
+  const scope = donorScopeSql(1);
+  const params = [organizationId];
 
   const [totalRes, repeatRes, newRes, lifetimeRes] = await Promise.all([
     pool.query(`SELECT COUNT(DISTINCT dr.id)::int AS count ${scope}`, params),
@@ -28,7 +29,6 @@ async function fetchDonorStats(organizationId, organizationName) {
          SELECT don.donor_id FROM donations don
          INNER JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
          WHERE don.organization_id = $1
-           AND ($2::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($2)))
          GROUP BY don.donor_id HAVING COUNT(*) > 1
        ) t`,
       params,
@@ -39,11 +39,10 @@ async function fetchDonorStats(organizationId, organizationName) {
          FROM donations don
          INNER JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
          WHERE don.organization_id = $1
-           AND ($2::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($2)))
          GROUP BY don.donor_id
-         HAVING MIN(don.date) >= $3::date
+         HAVING MIN(don.date) >= $2::date
        ) t`,
-      [...params, monthStart],
+      [organizationId, monthStart],
     ),
     fetchOrganizationDonationTotal(organizationId, organizationName),
   ]);
@@ -89,10 +88,10 @@ function complianceFilterClause(complianceFilter, params) {
 }
 
 async function buildDonorSummaries(organizationId, organizationName, search, filter, complianceFilter) {
-  const params = [organizationId, organizationName];
+  const params = [organizationId];
   let searchClause = '';
   if (search) {
-    params.push(`%${search}%`);
+    params.push(`%${search.trim().normalize('NFC')}%`);
     searchClause = `AND dr.name ILIKE $${params.length}`;
   }
   const complianceClause = complianceFilterClause(complianceFilter, params);
@@ -122,7 +121,7 @@ async function buildDonorSummaries(organizationId, organizationName, search, fil
         WHERE don2.donor_id = dr.id AND don2.organization_id = dr.organization_id
         ORDER BY don2.date DESC, don2.id DESC LIMIT 1
       ) AS last_donation_payment_mode
-     ${donorScopeSql(1, 2)}
+     ${donorScopeSql(1)}
      ${searchClause}
      ${complianceClause}
      GROUP BY dr.id, dr.name, dr.phone, dr.pan
@@ -318,7 +317,7 @@ router.put('/:id', verifyToken, async (req, res) => {
        SET name = $1, phone = $2, pan = $3
        WHERE id = $4 AND organization_id = $5
        RETURNING id, name, phone, pan`,
-      [String(name).trim(), normalizedPhone, normalizedPan, donorId, organizationId],
+      [normalizeDonorName(name), normalizedPhone, normalizedPan, donorId, organizationId],
     );
 
     if (result.rows.length === 0) {

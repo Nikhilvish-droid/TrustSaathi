@@ -1,4 +1,5 @@
 const { rowMissingFields } = require('./aiAnalysis');
+const { normalizeDonorName } = require('./donorName');
 
 async function upsertDonorAndInsertDonation(client, orgId, record, options = {}) {
   const {
@@ -6,7 +7,7 @@ async function upsertDonorAndInsertDonation(client, orgId, record, options = {})
     requiresReview = false,
   } = options;
 
-  const donorName = record.donor_name ? String(record.donor_name).trim() : '';
+  const donorName = normalizeDonorName(record.donor_name);
   const paymentMode = record.payment_mode ? String(record.payment_mode).trim() : '';
   const date = record.date;
   const amount = Number(record.amount);

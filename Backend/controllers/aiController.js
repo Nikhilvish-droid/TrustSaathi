@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const { resolveOrganizationId } = require('../utils/resolveOrganizationId');
 const { rowMissingFields, LOW_CONFIDENCE } = require('../utils/aiAnalysis');
+const { normalizeDonorName, isOrganizationHeaderRow } = require('../utils/donorName');
 
 function parseAmount(raw) {
   if (raw == null || raw === '') return null;
@@ -10,12 +11,13 @@ function parseAmount(raw) {
 }
 
 function resolveDonorName(record, rowIndex) {
-  const trimmed = record.donor_name ? String(record.donor_name).trim() : '';
+  const trimmed = record.donor_name ? normalizeDonorName(record.donor_name) : '';
   if (trimmed) return trimmed;
   return `Draft — Record ${rowIndex + 1}`;
 }
 
 async function upsertDonor(client, orgId, name, phone, pan) {
+  const normalizedName = normalizeDonorName(name);
   const donorResult = await client.query(
     `INSERT INTO donors (organization_id, name, phone, pan)
      VALUES ($1, $2, $3, $4)
@@ -24,7 +26,7 @@ async function upsertDonor(client, orgId, name, phone, pan) {
        phone = COALESCE(EXCLUDED.phone, donors.phone),
        pan = COALESCE(EXCLUDED.pan, donors.pan)
      RETURNING id`,
-    [orgId, name, phone || null, pan || null],
+    [orgId, normalizedName, phone || null, pan || null],
   );
   return donorResult.rows[0].id;
 }
@@ -142,6 +144,9 @@ const processAIPayload = async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    const orgNameResult = await client.query('SELECT name FROM organizations WHERE id = $1', [orgId]);
+    const organizationDisplayName = orgNameResult.rows[0]?.name ?? null;
+
     const processedRecords = [];
 
     for (let i = 0; i < records.length; i += 1) {
@@ -154,6 +159,10 @@ const processAIPayload = async (req, res) => {
       }
 
       const donorName = resolveDonorName(record, i);
+      if (isOrganizationHeaderRow(donorName, organizationDisplayName)) {
+        console.warn(`Skipping row ${i + 1}: extracted register header matches organization name.`);
+        continue;
+      }
       const donorId = await upsertDonor(
         client,
         orgId,

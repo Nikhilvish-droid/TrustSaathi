@@ -9,6 +9,7 @@ import {
   ImageIcon,
   Loader2,
   Sparkles,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -159,6 +160,16 @@ export function DocumentUploadFlow() {
     );
   };
 
+  const deleteRow = (id: string) => {
+    setRows((prev) => {
+      if (prev.length <= 1) {
+        toast.error("At least one row is required. Use Cancel to discard the upload.");
+        return prev;
+      }
+      return prev.filter((row) => row.id !== id);
+    });
+  };
+
   const submit = async (draft: boolean) => {
     if (!extractResult) return;
 
@@ -283,7 +294,8 @@ export function DocumentUploadFlow() {
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2.5 font-medium">#</th>
+                    <th className="px-3 py-2.5 font-medium w-10">#</th>
+                    <th className="px-2 py-2.5 font-medium w-16 text-center">Delete</th>
                     {CRITICAL_FIELD_KEYS.map((f) => (
                       <th key={f} className="px-3 py-2.5 font-medium">
                         {FIELD_LABELS[f]}
@@ -300,6 +312,7 @@ export function DocumentUploadFlow() {
                       row={row}
                       highlight={rowNeedsAttention(row, missingFields)}
                       onChange={updateRow}
+                      onDelete={deleteRow}
                     />
                   ))}
                 </tbody>
@@ -307,11 +320,14 @@ export function DocumentUploadFlow() {
             </div>
 
             <div className="flex flex-wrap gap-3 border-t border-border pt-4">
-              <Button className="rounded-full" onClick={() => void submit(false)}>
+              <Button className="rounded-full" onClick={() => void submit(false)} disabled={rows.length === 0}>
                 Confirm & Submit
               </Button>
-              <Button variant="outline" className="rounded-full" onClick={() => void submit(true)}>
+              <Button variant="outline" className="rounded-full" onClick={() => void submit(true)} disabled={rows.length === 0}>
                 Save as Draft / Do Later
+              </Button>
+              <Button variant="outline" className="rounded-full" onClick={reset}>
+                Cancel
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -370,17 +386,32 @@ function ReviewRow({
   row,
   highlight,
   onChange,
+  onDelete,
 }: {
   index: number;
   row: ReviewDonationRow;
   highlight: Partial<Record<CriticalField, boolean>>;
   onChange: (id: string, field: CriticalField, value: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const highlightClass = "border-amber-400 bg-amber-50 ring-1 ring-amber-300/60";
 
   return (
     <tr className="border-t border-border align-top">
       <td className="px-3 py-2 text-muted-foreground">{index}</td>
+      <td className="px-2 py-2 text-center">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => onDelete(row.id)}
+          title={`Delete row ${index}`}
+          aria-label={`Delete row ${index}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </td>
       <td className="px-3 py-2">
         <Input
           value={row.donor_name ?? ""}

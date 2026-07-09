@@ -7,6 +7,7 @@ const { getPeriodRanges, buildLifetimeRanges } = require('../utils/dateRanges');
 const { fetchChartOverview } = require('../utils/chartOverview');
 const { fetchOrganizationDonationTotal, fetchDonationAggregateStats, scopedDonationsWhere, buildScopedDonationParams } = require('../utils/donationTotals');
 const { upsertDonorAndInsertDonation } = require('../utils/donationInsert');
+const { normalizeDonorName } = require('../utils/donorName');
 
 async function requireOrganizationId(req, res) {
   const orgResult = await resolveOrganizationId(req);
@@ -133,7 +134,7 @@ router.put('/update/:id', verifyToken, async (req, res) => {
     if (donor_name && String(donor_name).trim() && result.rows[0].donor_id) {
       await client.query(
         `UPDATE donors SET name = $1 WHERE id = $2 AND organization_id = $3`,
-        [String(donor_name).trim(), result.rows[0].donor_id, organizationId],
+        [normalizeDonorName(donor_name), result.rows[0].donor_id, organizationId],
       );
     }
 
@@ -199,11 +200,10 @@ router.get('/top-donors', verifyToken, async (req, res) => {
        FROM donations don
        INNER JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
        WHERE don.organization_id = $1
-         AND ($3::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($3)))
        GROUP BY dr.id, dr.name
        ORDER BY total_amount DESC
        LIMIT $2`,
-      [organizationId, limit, orgName],
+      [organizationId, limit],
     );
 
     res.status(200).json({
@@ -240,10 +240,9 @@ router.get('/recent', verifyToken, async (req, res) => {
        FROM donations don
        INNER JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
        WHERE don.organization_id = $1
-         AND ($3::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($3)))
        ORDER BY don.date DESC, don.id DESC
        LIMIT $2`,
-      [organizationId, limit, orgName],
+      [organizationId, limit],
     );
 
     res.status(200).json({
@@ -356,9 +355,8 @@ async function fetchRegisteredDonorCount(organizationId, organizationName = null
     `SELECT COUNT(DISTINCT dr.id)::int AS count
      FROM donors dr
      INNER JOIN donations don ON don.donor_id = dr.id AND don.organization_id = dr.organization_id
-     WHERE dr.organization_id = $1
-       AND ($2::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($2)))`,
-    [organizationId, organizationName],
+     WHERE dr.organization_id = $1`,
+    [organizationId],
   );
   return result.rows[0].count;
 }
@@ -382,7 +380,7 @@ async function fetchPaymentModeBreakdown(organizationId, startDate, endDate, org
       COALESCE(SUM(don.amount), 0) AS amount
      FROM donations don
      LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
-     WHERE ${scopedDonationsWhere(1, 2)}
+     WHERE ${scopedDonationsWhere(1)}
        ${dateClause}
      GROUP BY mode
      ORDER BY count DESC`,

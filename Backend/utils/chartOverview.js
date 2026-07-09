@@ -175,7 +175,7 @@ async function fetchBucketStats(pool, organizationId, organizationName, start, e
       COALESCE(AVG(don.amount), 0) AS avg_donation
      FROM donations don
      LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
-     WHERE ${scopedDonationsWhere(1, 2)}
+     WHERE ${scopedDonationsWhere(1)}
        ${dateClause}`,
     params,
   );

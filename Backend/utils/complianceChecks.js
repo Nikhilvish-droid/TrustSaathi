@@ -59,8 +59,8 @@ async function fetchDonorDetailStats(pool, organizationId, organizationName) {
         WHERE dr.phone IS NULL OR TRIM(dr.phone) = ''
            OR dr.pan IS NULL OR TRIM(dr.pan) = ''
       )::int AS incomplete_donors
-     ${donorScopeSql(1, 2)}`,
-    [organizationId, organizationName],
+     ${donorScopeSql(1)}`,
+    [organizationId],
   );
 
   const row = result.rows[0];
@@ -84,9 +84,8 @@ async function countPendingReviews(pool, organizationId, organizationName) {
      FROM donations don
      LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      WHERE don.organization_id = $1
-       AND ($2::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($2)))
        AND don.requires_review = true`,
-    [organizationId, organizationName],
+    [organizationId],
   );
   return result.rows[0].count;
 }
@@ -98,12 +97,11 @@ async function fetchDraftMissingFieldCounts(pool, organizationId, organizationNa
      LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      CROSS JOIN LATERAL unnest(COALESCE(don.missing_fields, '{}')) AS field
      WHERE don.organization_id = $1
-       AND ($2::text IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($2)))
        AND don.requires_review = true
        AND COALESCE(don.record_status, 'completed') = 'draft'
      GROUP BY field
      ORDER BY count DESC`,
-    [organizationId, organizationName],
+    [organizationId],
   );
 
   const counts = {};

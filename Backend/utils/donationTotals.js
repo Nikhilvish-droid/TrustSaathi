@@ -2,15 +2,15 @@ const pool = require('../config/db');
 const { formatDateOnlyLocal } = require('./dateRanges');
 
 /**
- * Excludes rows where donor name equals the trust's own organization name (bad upload guard).
+ * Organization-scoped donation rows for KPIs and charts.
+ * All donors count regardless of script (Marathi, Hindi, Gujarati, English, etc.).
  */
-function scopedDonationsWhere(orgParamIndex, orgNameParamIndex) {
-  return `don.organization_id = $${orgParamIndex}
-    AND ($${orgNameParamIndex}::text IS NULL OR dr.id IS NULL OR LOWER(TRIM(dr.name)) <> LOWER(TRIM($${orgNameParamIndex})))`;
+function scopedDonationsWhere(orgParamIndex) {
+  return `don.organization_id = $${orgParamIndex}`;
 }
 
-function buildScopedDonationParams(organizationId, organizationName, startDate = null, endDate = null) {
-  const params = [organizationId, organizationName];
+function buildScopedDonationParams(organizationId, _organizationName = null, startDate = null, endDate = null) {
+  const params = [organizationId];
   let dateClause = '';
 
   if (startDate) {
@@ -43,7 +43,7 @@ async function fetchOrganizationDonationTotal(organizationId, organizationName =
     `SELECT COALESCE(SUM(don.amount), 0) AS total
      FROM donations don
      LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
-     WHERE ${scopedDonationsWhere(1, 2)}
+     WHERE ${scopedDonationsWhere(1)}
        ${dateClause}`,
     params,
   );
@@ -79,7 +79,7 @@ async function fetchDonationAggregateStats(
       COUNT(CASE WHEN don.requires_review = true THEN 1 END) AS pending_reviews
      FROM donations don
      LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
-     WHERE ${scopedDonationsWhere(1, 2)}
+     WHERE ${scopedDonationsWhere(1)}
        ${dateClause}`,
     params,
   );
