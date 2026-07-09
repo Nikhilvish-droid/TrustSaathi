@@ -13,6 +13,7 @@ Run with: uvicorn main:app --reload --port 8000
 """
 
 import httpx                               # Async HTTP client — used to forward data to Developer 2's API
+import asyncio
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form  # Core FastAPI components
 from fastapi.middleware.cors import CORSMiddleware            # Enables cross-origin requests
 
@@ -243,9 +244,9 @@ async def extract_data(file: UploadFile = File(...),organization_id: str = Form(
 
     # ── Step 7: Optionally Forward to Developer 2's API ──
 
-    # Only forward if BACKEND_API_URL is configured in .env
+    # Forward in background so the user gets the extract response immediately.
     if BACKEND_API_URL:
-        await _forward_to_backend(response_payload)
+        asyncio.create_task(_forward_to_backend(response_payload))
 
     return response_payload
 

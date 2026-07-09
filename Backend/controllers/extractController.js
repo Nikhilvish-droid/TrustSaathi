@@ -59,13 +59,15 @@ function buildAiMultipartBody(file, organizationId) {
 }
 
 async function wakeAiEngine() {
+  if (/localhost|127\.0\.0\.1/.test(AI_ENGINE_URL)) return;
+
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 90_000);
+    const timer = setTimeout(() => controller.abort(), 12_000);
     await fetch(`${AI_ENGINE_URL}/health`, { signal: controller.signal });
     clearTimeout(timer);
   } catch {
-    // Best-effort wake-up for Render free-tier cold starts.
+    // Best-effort wake-up for Render cold starts; extract runs in parallel.
   }
 }
 
@@ -82,12 +84,14 @@ async function proxyExtract(req, res) {
       });
     }
 
-    const orgResult = await resolveOrganizationId(req, req.body.organization_id);
+    // Resolve org while waking the AI engine — both run at the same time.
+    const [orgResult] = await Promise.all([
+      resolveOrganizationId(req, req.body.organization_id),
+      wakeAiEngine(),
+    ]);
     if (typeof orgResult === 'object' && orgResult?.error) {
       return res.status(400).json({ error: 'Missing organization_id.', hint: orgResult.message });
     }
-
-    await wakeAiEngine();
 
     const aiResponse = await fetch(`${AI_ENGINE_URL}/extract`, {
       method: 'POST',

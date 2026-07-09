@@ -1,65 +1,49 @@
 """
 services/gemini_processor.py — AI-Powered OCR & Entity Extraction
-=================================================================
-This module handles Image and PDF files by sending them to Google's
-Gemini 1.5 Flash model for:
-  1. OCR (reading handwritten/printed text from images)
-  2. Entity Extraction (pulling out donor_name, amount, date, payment_mode)
-  3. Document Classification (is it a register or receipt?)
-  4. Confidence Scoring (how sure is the AI about each extraction?)
-
-It uses the official `google-genai` SDK with inline byte uploads.
 """
 
+import io
 import json
 import time
 from google import genai
 from google.genai import types
-from config import GEMINI_API_KEY, GEMINI_MODEL, GEMINI_FALLBACK_MODELS
+from config import GEMINI_MODEL, GEMINI_FALLBACK_MODELS, gemini_api_key_list
 
-# ─────────────────
-# GEMINI CLIENT — LAZY INITIALIZATION
-# ──────────────────────────────────────────────────────────────────────────────
+_clients: list[genai.Client] = []
+_client_cursor = 0
 
-# We use "lazy initialization" here instead of creating the client immediately.
-# Why? Because if we wrote `client = genai.Client(api_key=...)` at the top level,
-# Python would execute that line the moment this file is imported — which happens
-# when the FastAPI server starts. If the API key is missing or invalid, the
-# ENTIRE server would crash on startup, even for users who only want to process Excel files.
-#
-# Instead, we store None and create the client only when someone actually uploads
-# an image/PDF. This way the server always starts, and we get a clear error only
-# when someone tries to use the Gemini feature without a key.
+IMAGE_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/tiff",
+}
 
-_client = None  # Will hold the genai.Client() once initialized
+# Max longest edge sent to Gemini — smaller = faster upload + inference.
+MAX_IMAGE_EDGE = int(__import__("os").getenv("GEMINI_MAX_IMAGE_EDGE", "1600"))
 
 
-def _get_client() -> genai.Client:
-    """
-    Returns the Gemini client, creating it on first use (lazy initialization).
+def _get_clients() -> list[genai.Client]:
+    global _clients
+    if _clients:
+        return _clients
 
-    The `global` keyword tells Python: "when I write `_client = ...` below,
-    I mean the module-level _client variable, not a new local variable."
-    Without `global`, Python would create a new local variable named _client
-    inside this function, and the module-level _client would stay None forever.
+    keys = gemini_api_key_list()
+    if not keys:
+        raise ValueError(
+            "No Gemini API key configured. Set GEMINI_API_KEY or GEMINI_API_KEYS in .env"
+        )
 
-    Raises:
-        ValueError: If GEMINI_API_KEY is not set in the environment.
-    """
-    global _client
+    _clients = [genai.Client(api_key=key) for key in keys]
+    return _clients
 
-    # Only create the client if it hasn't been created yet
-    if _client is None:
-        if not GEMINI_API_KEY:
-            raise ValueError(
-                "GEMINI_API_KEY is not set. Please add it to your .env file. "
-                "Get a key at: https://aistudio.google.com/apikey"
-            )
-        # Create the client and store it in the module-level variable.
-        # Subsequent calls will skip this block and reuse the existing client.
-        _client = genai.Client(api_key=GEMINI_API_KEY)
 
-    return _client
+def _next_client() -> genai.Client:
+    global _client_cursor
+    clients = _get_clients()
+    client = clients[_client_cursor % len(clients)]
+    _client_cursor += 1
+    return client
 
 
 def _model_candidates() -> list[str]:
@@ -68,7 +52,7 @@ def _model_candidates() -> list[str]:
         cleaned = name.strip()
         if cleaned and cleaned not in models:
             models.append(cleaned)
-    return models or ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.1-flash-lite"]
+    return models or ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
 
 
 def _is_model_not_found_error(exc: Exception) -> bool:
@@ -78,6 +62,15 @@ def _is_model_not_found_error(exc: Exception) -> bool:
         return True
     msg = str(exc).lower()
     return "404" in msg or ("not found" in msg and "model" in msg)
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    if hasattr(exc, "code") and getattr(exc, "code", None) == 429:
+        return True
+    if hasattr(exc, "status_code") and getattr(exc, "status_code", None) == 429:
+        return True
+    msg = str(exc).lower()
+    return "429" in msg or "resource exhausted" in msg or "rate limit" in msg
 
 
 def _is_retryable_gemini_error(exc: Exception) -> bool:
@@ -92,182 +85,126 @@ def _is_retryable_gemini_error(exc: Exception) -> bool:
     )
 
 
-def _generate_with_fallback(client: genai.Client, contents: list) -> str:
-    """Try primary + fallback Gemini models with short retries on 503/429."""
-    backoff_seconds = [2, 4, 8]
+def _maybe_compress_image(file_bytes: bytes, mime_type: str) -> tuple[bytes, str]:
+    """Downscale large photos/screenshots so Gemini receives fewer tokens faster."""
+    if mime_type not in IMAGE_MIME_TYPES:
+        return file_bytes, mime_type
+
+    if len(file_bytes) < 400_000 and mime_type == "image/jpeg":
+        return file_bytes, mime_type
+
+    try:
+        from PIL import Image
+
+        image = Image.open(io.BytesIO(file_bytes))
+        if image.mode not in ("RGB", "L"):
+            image = image.convert("RGB")
+
+        if max(image.size) > MAX_IMAGE_EDGE:
+            image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.Resampling.LANCZOS)
+
+        out = io.BytesIO()
+        image.save(out, format="JPEG", quality=82, optimize=True)
+        return out.getvalue(), "image/jpeg"
+    except Exception:
+        return file_bytes, mime_type
+
+
+def _call_model(client: genai.Client, model: str, contents: list) -> str:
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                temperature=0.1,
+                response_mime_type="application/json",
+            ),
+        )
+        return response.text
+    except Exception as exc:
+        msg = str(exc).lower()
+        if "response_mime_type" in msg or "response mime" in msg:
+            response = client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(temperature=0.1),
+            )
+            return response.text
+        raise
+
+
+def _generate_with_fallback(contents: list) -> str:
+    """Try models × API keys with short backoff. Rotates keys on 429."""
+    backoff_seconds = [0.5, 1.5, 3]
     last_error: Exception | None = None
+    clients = _get_clients()
 
     for model in _model_candidates():
-        for attempt, delay in enumerate(backoff_seconds):
-            try:
-                response = client.models.generate_content(
-                    model=model,
-                    contents=contents,
-                )
-                return response.text
-            except Exception as exc:
-                last_error = exc
-                if _is_model_not_found_error(exc):
-                    break
-                if _is_retryable_gemini_error(exc):
-                    if attempt < len(backoff_seconds) - 1:
-                        time.sleep(delay)
-                        continue
-                    break
-                raise
+        for client in clients:
+            for attempt, delay in enumerate(backoff_seconds):
+                try:
+                    return _call_model(client, model, contents)
+                except Exception as exc:
+                    last_error = exc
+                    if _is_model_not_found_error(exc):
+                        break
+                    if _is_rate_limit_error(exc):
+                        break
+                    if _is_retryable_gemini_error(exc):
+                        if attempt < len(backoff_seconds) - 1:
+                            time.sleep(delay)
+                            continue
+                        break
+                    raise
 
     raise ValueError(
         "Gemini is temporarily overloaded. Please wait a minute and try again."
     ) from last_error
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# THE SYSTEM PROMPT
-# ──────────────────────────────────────────────────────────────────────────────
-# This is the "instruction manual" we give to Gemini. It tells the AI model
-# EXACTLY what to do with the image/PDF it receives.
-# A well-crafted prompt is critical — it's the difference between getting
-# garbage output and getting clean, structured JSON.
-
 EXTRACTION_PROMPT = """
-You are an expert OCR and data extraction system for Indian NGOs and Trusts.
-You will receive an image or PDF of a handwritten donation register, receipt, or printed document.
-
-YOUR TASKS:
-1. **OCR**: Read ALL text in the document carefully, including handwritten text.
-2. **Extract** the following fields for EACH donation entry you find:
-   - `donor_name` (string): The name of the donor/giver.
-   - `amount` (number): The donation amount. MUST be a number, not a string. Remove any currency symbols.
-   - `date` (string): The date of the donation. Return in the EXACT format as written in the document.
-   - `payment_mode` (string): How the payment was made. Use EXACTLY one of:
-     "UPI", "Cash", "Bank Transfer", "Cheque", "Card", "Unknown".
-     Map GPay/PhonePe/Paytm/BHIM → "UPI". If not mentioned or unreadable, use "Unknown".
-   - `confidence_score` (number): Your confidence in the extraction accuracy, from 0.0 (no confidence) to 1.0 (fully confident). Consider legibility of handwriting, clarity of the document, and whether any fields had to be guessed.
-
-3. **Classify** the document as one of:
-   - `"handwritten_register"` — if it's a handwritten ledger/register with multiple entries
-   - `"receipt"` — if it's a single donation receipt (printed or handwritten)
-   - `"printed_register"` — if it's a printed/typed register with multiple entries
-
-CRITICAL RULES:
-- Return ONLY valid JSON. No markdown, no code fences, no explanatory text.
-- If you find multiple entries, return ALL of them in the array.
-- If a field is unreadable or missing, set it to null but still include the field.
-- The `amount` MUST be a number (integer or float), NOT a string.
-- Do NOT invent or hallucinate data. If you can't read something, set confidence_score lower.
-
-RESPONSE FORMAT (return EXACTLY this JSON structure):
+You are an OCR system for Indian NGO donation registers and receipts.
+Read the document and return ONLY valid JSON (no markdown) in this shape:
 {
-  "document_type": "handwritten_register",
+  "document_type": "handwritten_register" | "printed_register" | "receipt",
   "entries": [
     {
-      "donor_name": "Example Name",
+      "donor_name": "string or null",
       "amount": 1000,
-      "date": "28/06/2026",
-      "payment_mode": "Cash",
-      "confidence_score": 0.95
+      "date": "as written",
+      "payment_mode": "UPI" | "Cash" | "Bank Transfer" | "Cheque" | "Card" | "Unknown",
+      "confidence_score": 0.0
     }
   ]
 }
+Rules: amount must be a number; map GPay/PhonePe/Paytm to UPI; include every row; do not invent data.
 """
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# MAIN PROCESSING FUNCTION
-# ──────────────────────────────────────────────────────────────────────────────
-
 def process_image_or_pdf(file_bytes: bytes, mime_type: str) -> dict:
-    """
-    Sends an image or PDF to Gemini 1.5 Flash for OCR + entity extraction.
+    if mime_type in IMAGE_MIME_TYPES:
+        file_bytes, mime_type = _maybe_compress_image(file_bytes, mime_type)
 
-    How it works:
-    1. Wraps the raw file bytes into a `types.Part.from_bytes` object.
-       This tells the Gemini API: "here's an inline file, with this MIME type".
-    2. Sends the file + our extraction prompt to the model.
-    3. Parses the JSON response from the model.
-    4. Returns a dictionary with `document_type` and `entries`.
+    file_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
+    raw_text = _generate_with_fallback([file_part, EXTRACTION_PROMPT])
 
-    Args:
-        file_bytes: The raw binary content of the uploaded file.
-                    Obtained from FastAPI's UploadFile.read().
-        mime_type:  The MIME type of the file, e.g., "image/jpeg", "image/png",
-                    "application/pdf". This tells Gemini how to interpret the bytes.
-
-    Returns:
-        A dictionary like:
-        {
-            "document_type": "handwritten_register",
-            "entries": [
-                {"donor_name": "...", "amount": 1000, "date": "...", ...},
-                ...
-            ]
-        }
-
-    Raises:
-        ValueError: If the model returns invalid (non-parseable) JSON.
-        Exception: If the Gemini API call itself fails (network error, auth error, etc.)
-    """
-
-    # ── Step 1: Create an inline data part from the file bytes ──
-    # types.Part.from_bytes() wraps raw bytes + MIME type into a format
-    # that Gemini understands. This is the "inline data" approach
-    # (as opposed to the File API which uploads to Google's servers first).
-    # Inline data is best for files under 20MB.
-    file_part = types.Part.from_bytes(
-        data=file_bytes,     # The actual binary content of the image/PDF
-        mime_type=mime_type   # Tells Gemini if it's JPEG, PNG, PDF, etc.
-    )
-
-    # ── Step 2: Send the file + prompt to Gemini ──
-    # _get_client() returns the lazily-initialized Gemini client.
-    # .models.generate_content() is the main method to get AI responses.
-    # - model: which Gemini model to use. "gemini-1.5-flash" is fast and cheap.
-    # - contents: a list of "parts" that make up the prompt.
-    #   We send the file first, then our text instructions.
-    #   The model sees both and generates a response based on both.
-    client = _get_client()
-    raw_text = _generate_with_fallback(client, [file_part, EXTRACTION_PROMPT])
-
-    # ── Step 3: Extract the text from the response ──
-    # raw_text contains the model's text output (should be JSON).
-
-    # ── Step 4: Clean up the response ──
-    # Sometimes the model wraps its JSON in markdown code fences like:
-    # ```json
-    # { ... }
-    # ```
-    # We need to strip those away to get pure JSON.
-    # .strip() removes leading/trailing whitespace.
     cleaned_text = raw_text.strip()
-
-    # Check if the response starts with ```json or ``` and remove it
     if cleaned_text.startswith("```json"):
-        cleaned_text = cleaned_text[7:]    # Remove the first 7 chars ("```json")
+        cleaned_text = cleaned_text[7:]
     elif cleaned_text.startswith("```"):
-        cleaned_text = cleaned_text[3:]    # Remove the first 3 chars ("```")
-
-    # Remove trailing ``` if present
+        cleaned_text = cleaned_text[3:]
     if cleaned_text.endswith("```"):
-        cleaned_text = cleaned_text[:-3]   # Remove the last 3 chars
+        cleaned_text = cleaned_text[:-3]
+    cleaned_text = cleaned_text.strip()
 
-    cleaned_text = cleaned_text.strip()     # Clean up any remaining whitespace
-
-    # ── Step 5: Parse the JSON ──
     try:
-        # json.loads() converts a JSON string into a Python dictionary/list.
-        # If the string is not valid JSON, it raises json.JSONDecodeError.
         parsed = json.loads(cleaned_text)
     except json.JSONDecodeError as e:
-        # If parsing fails, raise a clear error with the raw text for debugging.
         raise ValueError(
-            f"Gemini returned invalid JSON. Raw response:\n{raw_text}\n"
-            f"Parse error: {e}"
-        )
+            f"Gemini returned invalid JSON. Raw response:\n{raw_text}\nParse error: {e}"
+        ) from e
 
-    # ── Step 6: Extract and return the structured data ──
-    # The parsed response should have "document_type" and "entries" keys
-    # (as specified in our prompt). We use .get() with defaults for safety.
     return {
         "document_type": parsed.get("document_type", "handwritten_register"),
-        "entries": parsed.get("entries", [])
+        "entries": parsed.get("entries", []),
     }

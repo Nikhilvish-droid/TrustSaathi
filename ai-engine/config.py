@@ -13,10 +13,23 @@ from dotenv import load_dotenv     # Reads key=value pairs from a .env file and 
 # is started from a different working directory.
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-# --- Gemini API Key ---
-# Some setups use GEMINI_API_KEY and others use GOOGLE_API_KEY.
-# We accept either, but Gemini API Studio keys should be stored here.
-GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+# --- Gemini API Key(s) ---
+# Single key: GEMINI_API_KEY=...
+# Multiple keys (round-robin on rate limits): GEMINI_API_KEYS=key1,key2,key3
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+GEMINI_API_KEYS: str = os.getenv("GEMINI_API_KEYS", "")
+
+
+def gemini_api_key_list() -> list[str]:
+    keys: list[str] = []
+    for raw in (GEMINI_API_KEYS, GEMINI_API_KEY):
+        if not raw:
+            continue
+        for part in raw.split(","):
+            cleaned = part.strip()
+            if cleaned and cleaned not in keys:
+                keys.append(cleaned)
+    return keys
 
 # --- Developer 2's Backend URL ---
 # This is the URL where we'll forward the extracted data.
@@ -28,11 +41,9 @@ BACKEND_API_URL: str = os.getenv("BACKEND_API_URL", "")
 # This must match AI_SERVICE_API_KEY in the Node backend .env file.
 BACKEND_API_KEY: str = os.getenv("BACKEND_API_KEY", "")
 
-# --- Gemini model ---
-# Primary model + comma-separated fallbacks when Google returns 503 high demand.
-# Older models (gemini-1.5-*, gemini-2.0-*) return 404 — do not use them.
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+# Primary model — flash-lite variants are fastest for OCR tables.
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 GEMINI_FALLBACK_MODELS: str = os.getenv(
     "GEMINI_FALLBACK_MODELS",
-    "gemini-2.5-flash,gemini-3.1-flash-lite,gemini-2.5-flash-lite",
+    "gemini-3.1-flash-lite,gemini-2.5-flash,gemini-3.5-flash",
 )
