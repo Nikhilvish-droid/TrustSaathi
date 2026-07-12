@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Receipt, Plus, TrendingUp, TrendingDown, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -128,38 +129,29 @@ function emptyForm(): EntryForm {
 }
 
 function ExpensesPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("Lifetime");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<TransactionType>("Income");
   const [form, setForm] = useState<EntryForm>(emptyForm);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetchIncomeExpenses();
-        setTransactions(res.transactions.map(mapIncomeExpenseRecord));
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load income & expenses.");
-        setTransactions([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, []);
+  const queryClient = useQueryClient();
+
+  const { data: res, isLoading: loading } = useQuery({
+    queryKey: ["incomeExpenses"],
+    queryFn: fetchIncomeExpenses,
+  });
+
+  const allTransactions = useMemo(() => (res?.transactions ?? []).map(mapIncomeExpenseRecord), [res]);
 
   const filteredTransactions = useMemo(() => {
-    return filterTransactions(transactions, timeFilter).sort(
+    return filterTransactions(allTransactions, timeFilter).sort(
       (a, b) => (parseLocalDate(b.date)?.getTime() ?? 0) - (parseLocalDate(a.date)?.getTime() ?? 0),
     );
-  }, [transactions, timeFilter]);
+  }, [allTransactions, timeFilter]);
 
   const { totalIncome, totalExpenses, net } = useMemo(() => {
     let income = 0;
@@ -227,14 +219,12 @@ function ExpensesPage() {
 
       if (editingId) {
         const res = await updateIncomeExpense(editingId, payload);
-        setTransactions((prev) =>
-          prev.map((t) => (t.id === editingId ? mapIncomeExpenseRecord(res.transaction) : t)),
-        );
+        queryClient.invalidateQueries({ queryKey: ["incomeExpenses"] });
         closeModal();
         toast.success(res.message);
       } else {
         const res = await createIncomeExpense(payload);
-        setTransactions((prev) => [mapIncomeExpenseRecord(res.transaction), ...prev]);
+        queryClient.invalidateQueries({ queryKey: ["incomeExpenses"] });
         closeModal();
         toast.success(res.message);
       }
@@ -251,7 +241,7 @@ function ExpensesPage() {
     setDeleting(true);
     try {
       await deleteIncomeExpense(deleteTarget.id);
-      setTransactions((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+      queryClient.invalidateQueries({ queryKey: ["incomeExpenses"] });
       toast.success("Entry deleted.");
       setDeleteTarget(null);
     } catch (err) {

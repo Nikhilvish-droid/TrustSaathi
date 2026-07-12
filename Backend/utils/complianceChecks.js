@@ -82,7 +82,6 @@ async function countPendingReviews(pool, organizationId, organizationName) {
   const result = await pool.query(
     `SELECT COUNT(don.id)::int AS count
      FROM donations don
-     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      WHERE don.organization_id = $1
        AND don.requires_review = true`,
     [organizationId],
@@ -94,7 +93,6 @@ async function fetchDraftMissingFieldCounts(pool, organizationId, organizationNa
   const result = await pool.query(
     `SELECT field, COUNT(*)::int AS count
      FROM donations don
-     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      CROSS JOIN LATERAL unnest(COALESCE(don.missing_fields, '{}')) AS field
      WHERE don.organization_id = $1
        AND don.requires_review = true

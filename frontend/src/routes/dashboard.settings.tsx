@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Settings, LogOut, Pencil, X, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,16 @@ function toForm(user: AuthUser): ProfileForm {
 }
 
 function SettingsPage() {
-  const [profile, setProfile] = useState<AuthUser | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const { data: profileRes, isLoading: loading } = useQuery({
+    queryKey: ["profile"],
+    queryFn: fetchProfile,
+  });
+
+  const profile = profileRes?.user ?? null;
   const [form, setForm] = useState<ProfileForm>({
     user_name: "",
     email: "",
@@ -42,27 +52,11 @@ function SettingsPage() {
     reg_number: "",
     password: "",
   });
-  const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { user } = await fetchProfile();
-        setProfile(user);
-        setForm(toForm(user));
-        const token = getAuthToken();
-        if (token) setAuthSession(token, user);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load profile.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, []);
+  // Sync form when profile loads
+  if (profile && !editing && !form.user_name && profile.name) {
+    setForm(toForm(profile));
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -99,8 +93,6 @@ function SettingsPage() {
         password: form.password.trim() || undefined,
       });
 
-      setProfile(result.user);
-      setForm(toForm(result.user));
       const token = getAuthToken();
       if (token) setAuthSession(token, result.user);
       setEditing(false);

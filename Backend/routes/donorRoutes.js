@@ -87,7 +87,7 @@ function complianceFilterClause(complianceFilter, params) {
   }
 }
 
-async function buildDonorSummaries(organizationId, organizationName, search, filter, complianceFilter) {
+async function buildDonorSummaries(organizationId, organizationName, search, filter, complianceFilter, page = 1, limit = 100) {
   const params = [organizationId];
   let searchClause = '';
   if (search) {
@@ -96,65 +96,76 @@ async function buildDonorSummaries(organizationId, organizationName, search, fil
   }
   const complianceClause = complianceFilterClause(complianceFilter, params);
 
-  const result = await pool.query(
-    `SELECT
-      dr.id,
-      dr.name,
-      dr.phone,
-      dr.pan,
-      COUNT(don.id)::int AS donation_count,
-      COALESCE(SUM(don.amount), 0) AS lifetime_amount,
-      MAX(don.date) AS last_donation_date,
-      MIN(don.date) AS first_donation_date,
-      (
-        SELECT don2.id FROM donations don2
-        WHERE don2.donor_id = dr.id AND don2.organization_id = dr.organization_id
-        ORDER BY don2.date DESC, don2.id DESC LIMIT 1
-      ) AS last_donation_id,
-      (
-        SELECT don2.amount FROM donations don2
-        WHERE don2.donor_id = dr.id AND don2.organization_id = dr.organization_id
-        ORDER BY don2.date DESC, don2.id DESC LIMIT 1
-      ) AS last_donation_amount,
-      (
-        SELECT don2.payment_mode FROM donations don2
-        WHERE don2.donor_id = dr.id AND don2.organization_id = dr.organization_id
-        ORDER BY don2.date DESC, don2.id DESC LIMIT 1
-      ) AS last_donation_payment_mode
-     ${donorScopeSql(1)}
-     ${searchClause}
-     ${complianceClause}
-     GROUP BY dr.id, dr.name, dr.phone, dr.pan
-     ORDER BY lifetime_amount DESC, dr.name ASC`,
-    params,
-  );
+  params.push(limit);
+  params.push((page - 1) * limit);
+  const limitClause = `LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
-  return result.rows
-    .map((row) => {
-      const category = inferDonorCategory(row.name, row.donation_count, row.first_donation_date);
-      return {
-        id: row.id,
-        name: row.name,
-        phone: row.phone || null,
-        pan: row.pan || null,
-        donation_count: row.donation_count,
-        lifetime_amount: parseFloat(row.lifetime_amount),
-        last_donation_date: row.last_donation_date,
-        first_donation_date: row.first_donation_date,
-        last_donation_id: row.last_donation_id || null,
-        last_donation_amount:
-          row.last_donation_amount != null ? parseFloat(row.last_donation_amount) : null,
-        last_donation_payment_mode: row.last_donation_payment_mode || null,
-        category,
-      };
-    })
-    .filter((donor) =>
-      matchesFilter(donor.category, donor.donation_count, donor.first_donation_date, filter),
-    );
+  const [result, countResult] = await Promise.all([
+    pool.query(
+      `SELECT
+        dr.id,
+        dr.name,
+        dr.phone,
+        dr.pan,
+        COUNT(don.id)::int AS donation_count,
+        COALESCE(SUM(don.amount), 0) AS lifetime_amount,
+        MAX(don.date) AS last_donation_date,
+        MIN(don.date) AS first_donation_date,
+        (ARRAY_AGG(don.id ORDER BY don.date DESC, don.id DESC))[1] AS last_donation_id,
+        (ARRAY_AGG(don.amount ORDER BY don.date DESC, don.id DESC))[1] AS last_donation_amount,
+        (ARRAY_AGG(don.payment_mode ORDER BY don.date DESC, don.id DESC))[1] AS last_donation_payment_mode
+       FROM donors dr
+       INNER JOIN donations don ON don.donor_id = dr.id AND don.organization_id = dr.organization_id
+       WHERE dr.organization_id = $1
+       ${searchClause}
+       ${complianceClause}
+       GROUP BY dr.id, dr.name, dr.phone, dr.pan
+       ORDER BY lifetime_amount DESC, dr.name ASC
+       ${limitClause}`,
+      params,
+    ),
+    pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM donors dr
+       INNER JOIN donations don ON don.donor_id = dr.id AND don.organization_id = dr.organization_id
+       WHERE dr.organization_id = $1
+       ${searchClause}
+       ${complianceClause}`,
+      params.slice(0, -2),
+    ),
+  ]);
+
+  const total = countResult.rows[0]?.total || 0;
+
+  return {
+    donors: result.rows
+      .map((row) => {
+        const category = inferDonorCategory(row.name, row.donation_count, row.first_donation_date);
+        return {
+          id: row.id,
+          name: row.name,
+          phone: row.phone || null,
+          pan: row.pan || null,
+          donation_count: row.donation_count,
+          lifetime_amount: parseFloat(row.lifetime_amount),
+          last_donation_date: row.last_donation_date,
+          first_donation_date: row.first_donation_date,
+          last_donation_id: row.last_donation_id || null,
+          last_donation_amount:
+            row.last_donation_amount != null ? parseFloat(row.last_donation_amount) : null,
+          last_donation_payment_mode: row.last_donation_payment_mode || null,
+          category,
+        };
+      })
+      .filter((donor) =>
+        matchesFilter(donor.category, donor.donation_count, donor.first_donation_date, filter),
+      ),
+    total,
+  };
 }
 
 async function buildDonationLedgerRows(organizationId, organizationName, search, filter, complianceFilter) {
-  const donors = await buildDonorSummaries(organizationId, organizationName, search, filter, complianceFilter);
+  const { donors } = await buildDonorSummaries(organizationId, organizationName, search, filter, complianceFilter);
   if (donors.length === 0) return [];
 
   const donorIds = donors.map((d) => d.id);
@@ -197,13 +208,17 @@ router.get('/', verifyToken, async (req, res) => {
     const search = (req.query.search || '').toString().trim();
     const filter = (req.query.filter || 'all').toString().trim().toLowerCase();
     const complianceFilter = (req.query.compliance_filter || '').toString().trim().toLowerCase();
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
 
-    const donors = await buildDonorSummaries(
+    const { donors, total } = await buildDonorSummaries(
       organizationId,
       organizationName,
       search,
       filter,
       complianceFilter || null,
+      page,
+      limit,
     );
     const stats = await fetchDonorStats(organizationId, organizationName);
 
@@ -211,6 +226,9 @@ router.get('/', verifyToken, async (req, res) => {
       message: 'Donors fetched successfully',
       stats,
       donors,
+      total_records: total,
+      current_page: page,
+      total_pages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Donors List Error:', error);
@@ -273,13 +291,26 @@ router.get('/:id/donations', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Donor not found or unauthorized.' });
     }
 
-    const result = await pool.query(
-      `SELECT id, amount, date, payment_mode
-       FROM donations
-       WHERE donor_id = $1 AND organization_id = $2
-       ORDER BY date DESC, id DESC`,
-      [donorId, organizationId],
-    );
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
+    const offset = (page - 1) * limit;
+
+    const [result, countResult] = await Promise.all([
+      pool.query(
+        `SELECT id, amount, date, payment_mode
+         FROM donations
+         WHERE donor_id = $1 AND organization_id = $2
+         ORDER BY date DESC, id DESC
+         LIMIT $3 OFFSET $4`,
+        [donorId, organizationId, limit, offset],
+      ),
+      pool.query(
+        'SELECT COUNT(*)::int AS total FROM donations WHERE donor_id = $1 AND organization_id = $2',
+        [donorId, organizationId],
+      ),
+    ]);
+
+    const total = countResult.rows[0]?.total || 0;
 
     res.status(200).json({
       message: 'Donor donations fetched successfully',
@@ -289,6 +320,9 @@ router.get('/:id/donations', verifyToken, async (req, res) => {
         date: row.date,
         payment_mode: row.payment_mode,
       })),
+      total_records: total,
+      current_page: page,
+      total_pages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Donor Donations Error:', error);

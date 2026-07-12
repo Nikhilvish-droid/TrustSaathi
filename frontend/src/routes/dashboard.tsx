@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getAuthToken, getAuthUser, logout, saveReturnUrl } from "@/lib/auth-session";
 import { SiteFooter } from "@/components/site-footer";
+import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: ({ location }) => {
@@ -25,8 +26,11 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardLayout() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const user = getAuthUser();
-  const initials = user?.name
+  const initials = mounted && user?.name
     ? user.name
         .split(" ")
         .map((part) => part[0])
@@ -34,7 +38,7 @@ function DashboardLayout() {
         .slice(0, 2)
         .toUpperCase()
     : "TS";
-  const displayName = user?.name ?? "TrustSaathi User";
+  const displayName = mounted && user?.name ? user.name : "TrustSaathi User";
 
   return (
     <SidebarProvider>

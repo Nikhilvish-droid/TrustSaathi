@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const verifyToken = require('../middleware/authMiddleware');
 const { resolveOrganizationId, resolveOrganizationContext } = require('../utils/resolveOrganizationId');
-const { getPeriodRanges, buildLifetimeRanges } = require('../utils/dateRanges');
+const { getPeriodRanges, buildLifetimeRanges, formatDateOnlyLocal } = require('../utils/dateRanges');
 const { fetchChartOverview } = require('../utils/chartOverview');
 const { fetchOrganizationDonationTotal, fetchDonationAggregateStats, scopedDonationsWhere, buildScopedDonationParams } = require('../utils/donationTotals');
 const { upsertDonorAndInsertDonation } = require('../utils/donationInsert');
@@ -287,20 +287,54 @@ router.get('/summary', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid period. Use today, month, fy, or lifetime.' });
     }
 
-    const current = await fetchDonationStats(
-      organizationId,
-      ranges.current.start,
-      ranges.current.end,
-      orgName,
+    // Single query for current + previous + lifetime stats using FILTER
+    const currentStart = formatDateOnlyLocal(ranges.current.start);
+    const currentEnd = ranges.current.end ? formatDateOnlyLocal(ranges.current.end) : '9999-12-31';
+    const previousStart = formatDateOnlyLocal(ranges.previous.start);
+    const previousEnd = ranges.previous.end ? formatDateOnlyLocal(ranges.previous.end) : '9999-12-31';
+
+    const statsResult = await pool.query(
+      `SELECT
+        COALESCE(SUM(don.amount) FILTER (WHERE don.date >= $2::date AND don.date <= $3::date), 0) AS cur_funds,
+        COUNT(don.id) FILTER (WHERE don.date >= $2::date AND don.date <= $3::date) AS cur_donations,
+        COUNT(DISTINCT don.donor_id) FILTER (WHERE don.date >= $2::date AND don.date <= $3::date) AS cur_donors,
+        COALESCE(AVG(don.amount) FILTER (WHERE don.date >= $2::date AND don.date <= $3::date), 0) AS cur_avg,
+        COALESCE(MAX(don.amount) FILTER (WHERE don.date >= $2::date AND don.date <= $3::date), 0) AS cur_max,
+        COALESCE(MIN(NULLIF(don.amount, 0)) FILTER (WHERE don.date >= $2::date AND don.date <= $3::date), 0) AS cur_min,
+        COUNT(CASE WHEN don.requires_review = true AND don.date >= $2::date AND don.date <= $3::date THEN 1 END) AS cur_pending,
+        COALESCE(SUM(don.amount) FILTER (WHERE don.date >= $4::date AND don.date <= $5::date), 0) AS prev_funds,
+        COUNT(don.id) FILTER (WHERE don.date >= $4::date AND don.date <= $5::date) AS prev_donations,
+        COUNT(DISTINCT don.donor_id) FILTER (WHERE don.date >= $4::date AND don.date <= $5::date) AS prev_donors,
+        COALESCE(AVG(don.amount) FILTER (WHERE don.date >= $4::date AND don.date <= $5::date), 0) AS prev_avg,
+        COALESCE(MAX(don.amount) FILTER (WHERE don.date >= $4::date AND don.date <= $5::date), 0) AS prev_max,
+        COALESCE(MIN(NULLIF(don.amount, 0)) FILTER (WHERE don.date >= $4::date AND don.date <= $5::date), 0) AS prev_min,
+        COALESCE(SUM(don.amount), 0) AS lifetime_funds,
+        COUNT(DISTINCT don.donor_id) AS registered_donors
+       FROM donations don
+       WHERE don.organization_id = $1`,
+      [organizationId, currentStart, currentEnd, previousStart, previousEnd],
     );
-    const previous = await fetchDonationStats(
-      organizationId,
-      ranges.previous.start,
-      ranges.previous.end,
-      orgName,
-    );
-    const registeredDonors = await fetchRegisteredDonorCount(organizationId, orgName);
-    const lifetimeFunds = await fetchOrganizationDonationTotal(organizationId, orgName);
+
+    const s = statsResult.rows[0];
+    const current = {
+      total_funds: parseFloat(s.cur_funds),
+      total_donations: parseInt(s.cur_donations, 10),
+      total_donors: parseInt(s.cur_donors, 10),
+      avg_donation: parseFloat(s.cur_avg),
+      max_donation: parseFloat(s.cur_max),
+      min_donation: parseFloat(s.cur_min),
+      pending_reviews: parseInt(s.cur_pending, 10),
+    };
+    const previous = {
+      total_funds: parseFloat(s.prev_funds),
+      total_donations: parseInt(s.prev_donations, 10),
+      total_donors: parseInt(s.prev_donors, 10),
+      avg_donation: parseFloat(s.prev_avg),
+      max_donation: parseFloat(s.prev_max),
+      min_donation: parseFloat(s.prev_min),
+    };
+
+    // Payment mode breakdown as a separate query
     const paymentModes = await fetchPaymentModeBreakdown(
       organizationId,
       ranges.current.start,
@@ -315,9 +349,9 @@ router.get('/summary', verifyToken, async (req, res) => {
       chart_subtitle: chartOverview.subtitle,
       chart_badge: chartOverview.badge,
       total_funds: current.total_funds,
-      lifetime_funds: lifetimeFunds,
+      lifetime_funds: parseFloat(s.lifetime_funds),
       total_donors: current.total_donors,
-      registered_donors: registeredDonors,
+      registered_donors: parseInt(s.registered_donors, 10),
       total_donations: current.total_donations,
       avg_donation: current.avg_donation,
       max_donation: current.max_donation,
@@ -379,7 +413,6 @@ async function fetchPaymentModeBreakdown(organizationId, startDate, endDate, org
       COUNT(don.id)::int AS count,
       COALESCE(SUM(don.amount), 0) AS amount
      FROM donations don
-     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      WHERE ${scopedDonationsWhere(1)}
        ${dateClause}
      GROUP BY mode

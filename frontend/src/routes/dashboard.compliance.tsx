@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -109,15 +110,10 @@ function toDateInputValue(dateStr: string | null | undefined): string {
 }
 
 function CompliancePage() {
-  const [summary, setSummary] = useState<ComplianceSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<DonorFilter>("all");
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter | null>(null);
-  const [donors, setDonors] = useState<DonorRecord[]>([]);
-  const [donorsLoading, setDonorsLoading] = useState(true);
 
   const [editDonor, setEditDonor] = useState<DonorRecord | null>(null);
   const [editName, setEditName] = useState("");
@@ -134,44 +130,24 @@ function CompliancePage() {
   const [deleteTarget, setDeleteTarget] = useState<DonorRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadSummary = useCallback(async () => {
-    setSummaryLoading(true);
-    try {
-      const res = await fetchComplianceSummary();
-      setSummary(res);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load compliance summary.");
-      setSummary(null);
-    } finally {
-      setSummaryLoading(false);
-    }
-  }, []);
+  const queryClient = useQueryClient();
 
-  const loadDonors = useCallback(async () => {
-    setDonorsLoading(true);
-    try {
-      const res = await fetchDonors(debouncedSearch, filter, complianceFilter);
-      setDonors(res.donors);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load donors.");
-      setDonors([]);
-    } finally {
-      setDonorsLoading(false);
-    }
-  }, [debouncedSearch, filter, complianceFilter]);
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ["complianceSummary"],
+    queryFn: fetchComplianceSummary,
+  });
+
+  const { data: donorsRes, isLoading: donorsLoading } = useQuery({
+    queryKey: ["complianceDonors", debouncedSearch, filter, complianceFilter],
+    queryFn: () => fetchDonors(debouncedSearch, filter, complianceFilter),
+  });
+
+  const donors = donorsRes?.donors ?? [];
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
-
-  useEffect(() => {
-    void loadSummary();
-  }, [loadSummary]);
-
-  useEffect(() => {
-    void loadDonors();
-  }, [loadDonors]);
 
   const handleAlertAction = (alert: ComplianceAlert) => {
     if (alert.filter_key) {
@@ -256,7 +232,10 @@ function CompliancePage() {
 
       toast.success("Donor and donation updated.");
       setEditDonor(null);
-      await Promise.all([loadDonors(), loadSummary()]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["complianceDonors"] }),
+        queryClient.invalidateQueries({ queryKey: ["complianceSummary"] }),
+      ]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update record.");
     } finally {
@@ -271,7 +250,10 @@ function CompliancePage() {
       await deleteDonor(deleteTarget.id);
       toast.success(`${deleteTarget.name} deleted.`);
       setDeleteTarget(null);
-      await Promise.all([loadDonors(), loadSummary()]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["complianceDonors"] }),
+        queryClient.invalidateQueries({ queryKey: ["complianceSummary"] }),
+      ]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete donor.");
     } finally {

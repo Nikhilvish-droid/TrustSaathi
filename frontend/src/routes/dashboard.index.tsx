@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   HandCoins,
   Users,
@@ -32,7 +33,6 @@ import {
   ComposedChart,
   Legend,
 } from "recharts";
-import { fetchProfile } from "@/lib/auth-api";
 import {
   fetchDonationSummary,
   fetchTopDonors,
@@ -46,7 +46,7 @@ import {
   type TopDonor,
   type RecentDonation,
 } from "@/lib/donations-api";
-import { toast } from "sonner";
+import { getAuthUser } from "@/lib/auth-session";
 import { PricingSection } from "@/components/pricing-section";
 import { FAQSection } from "@/components/faq-section";
 
@@ -214,56 +214,25 @@ function buildKpis(data: DonationSummaryData) {
 }
 
 function DashboardHome() {
-  const [userName, setUserName] = useState<string>("");
   const [period, setPeriod] = useState<DashboardPeriod>("month");
-  const [summary, setSummary] = useState<DonationSummaryData | null>(null);
-  const [topDonors, setTopDonors] = useState<TopDonor[]>([]);
-  const [recentDonations, setRecentDonations] = useState<RecentDonation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [tablesLoading, setTablesLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const user = getAuthUser();
 
-  useEffect(() => {
-    void fetchProfile()
-      .then(({ user }) => setUserName(user.name ?? ""))
-      .catch(() => setUserName(""));
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const { data } = await fetchDonationSummary(period);
-        setSummary(data);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load dashboard stats.");
-        setSummary(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, [period]);
+  const { data: summaryRes, isLoading: loading } = useQuery({
+    queryKey: ["donationSummary", period],
+    queryFn: () => fetchDonationSummary(period),
+  });
 
-  useEffect(() => {
-    const loadTables = async () => {
-      setTablesLoading(true);
-      try {
-        const [donorsRes, recentRes] = await Promise.all([
-          fetchTopDonors(5),
-          fetchRecentDonations(5),
-        ]);
-        setTopDonors(donorsRes.donors);
-        setRecentDonations(recentRes.donations);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load donor tables.");
-        setTopDonors([]);
-        setRecentDonations([]);
-      } finally {
-        setTablesLoading(false);
-      }
-    };
-    void loadTables();
-  }, []);
+  const { data: tablesRes, isLoading: tablesLoading } = useQuery({
+    queryKey: ["dashboardTables"],
+    queryFn: () => Promise.all([fetchTopDonors(5), fetchRecentDonations(5)]),
+  });
+
+  const summary = summaryRes?.data ?? null;
+  const topDonors = tablesRes?.[0]?.donors ?? [];
+  const recentDonations = tablesRes?.[1]?.donations ?? [];
 
   const kpis = useMemo(() => (summary ? buildKpis(summary) : []), [summary]);
   const paymentModeData = useMemo(
@@ -278,7 +247,7 @@ function DashboardHome() {
     const peak = chartOverview.reduce((m, p) => Math.max(m, p.avg_donation_k ?? 0), 0);
     return Math.max(Math.ceil(peak * 1.25), 1);
   }, [chartOverview]);
-  const firstName = getFirstName(userName);
+  const firstName = mounted ? getFirstName(user?.name) : "there";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -440,11 +409,12 @@ function DashboardHome() {
                     stroke={CHART_LINE_DEFAULT}
                     strokeWidth={2.5}
                     dot={(props) => {
-                      const { cx, cy, payload } = props as { cx?: number; cy?: number; payload?: ChartOverviewPoint };
-                      if (cx == null || cy == null) return <circle cx={0} cy={0} r={0} fill="none" />;
+                      const { cx, cy, payload, key } = props as { cx?: number; cy?: number; payload?: ChartOverviewPoint; key?: string };
+                      if (cx == null || cy == null) return <circle key={key} cx={0} cy={0} r={0} fill="none" />;
                       const highlighted = payload?.is_highlight;
                       return (
                         <circle
+                          key={key}
                           cx={cx}
                           cy={cy}
                           r={highlighted ? 6 : 3}
@@ -608,8 +578,8 @@ function DashboardHome() {
                   </tr>
                 </thead>
                 <tbody>
-                  {topDonors.map((d) => (
-                    <tr key={d.name} className="border-b border-border last:border-0">
+                  {topDonors.map((d, i) => (
+                    <tr key={`${d.name}-${i}`} className="border-b border-border last:border-0">
                       <td className="px-5 py-3 font-medium">{d.name}</td>
                       <td className="px-5 py-3 text-muted-foreground">{d.donation_count}</td>
                       <td className="px-5 py-3 text-right font-semibold text-primary">

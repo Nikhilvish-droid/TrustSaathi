@@ -99,23 +99,39 @@ async function buildIncomeExpenseExportRows(organizationId, type) {
   }));
 }
 
-// GET all income & expense entries for the logged-in organization
+// GET all income & expense entries for the logged-in organization (with pagination)
 router.get('/', verifyToken, async (req, res) => {
   try {
     const organizationId = await requireOrganizationId(req, res);
     if (!organizationId) return;
 
-    const result = await pool.query(
-      `SELECT ${TRANSACTION_COLUMNS}
-       FROM income_expenses
-       WHERE organization_id = $1
-       ORDER BY date DESC, created_at DESC`,
-      [organizationId],
-    );
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
+    const offset = (page - 1) * limit;
+
+    const [result, countResult] = await Promise.all([
+      pool.query(
+        `SELECT ${TRANSACTION_COLUMNS}
+         FROM income_expenses
+         WHERE organization_id = $1
+         ORDER BY date DESC, created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [organizationId, limit, offset],
+      ),
+      pool.query(
+        'SELECT COUNT(*)::int AS total FROM income_expenses WHERE organization_id = $1',
+        [organizationId],
+      ),
+    ]);
+
+    const total = countResult.rows[0]?.total || 0;
 
     res.status(200).json({
       message: 'Income & expense entries fetched successfully',
       transactions: result.rows,
+      total_records: total,
+      current_page: page,
+      total_pages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Fetch Income/Expense Error:', error);

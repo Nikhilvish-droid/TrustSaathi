@@ -42,7 +42,6 @@ async function fetchOrganizationDonationTotal(organizationId, organizationName =
   const result = await pool.query(
     `SELECT COALESCE(SUM(don.amount), 0) AS total
      FROM donations don
-     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      WHERE ${scopedDonationsWhere(1)}
        ${dateClause}`,
     params,
@@ -78,7 +77,6 @@ async function fetchDonationAggregateStats(
       COALESCE(MIN(NULLIF(don.amount, 0)), 0) AS min_donation,
       COUNT(CASE WHEN don.requires_review = true THEN 1 END) AS pending_reviews
      FROM donations don
-     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      WHERE ${scopedDonationsWhere(1)}
        ${dateClause}`,
     params,

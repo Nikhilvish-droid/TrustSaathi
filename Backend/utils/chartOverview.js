@@ -174,7 +174,6 @@ async function fetchBucketStats(pool, organizationId, organizationName, start, e
       COUNT(DISTINCT don.donor_id)::int AS donor_count,
       COALESCE(AVG(don.amount), 0) AS avg_donation
      FROM donations don
-     LEFT JOIN donors dr ON dr.id = don.donor_id AND dr.organization_id = don.organization_id
      WHERE ${scopedDonationsWhere(1)}
        ${dateClause}`,
     params,
@@ -212,22 +211,50 @@ async function fetchChartOverview(pool, organizationId, period, ranges, organiza
     return { subtitle: '', badge: null, points: [] };
   }
 
-  const points = await Promise.all(
-    buckets.map(async (bucket) => {
-      const stats = await fetchBucketStats(
-        pool,
-        organizationId,
-        organizationName,
-        bucket.start,
-        bucket.end,
-      );
-      return {
-        label: bucket.label,
-        ...stats,
-        is_highlight: bucket.is_highlight,
-      };
-    }),
+  // Single-query approach: build a UNION ALL of bucket ranges and aggregate per bucket
+  const bucketValues = [];
+  const paramPlaceholders = [];
+  for (let i = 0; i < buckets.length; i++) {
+    const idx = i * 3 + 1;
+    paramPlaceholders.push(`($${idx}::date, $${idx + 1}::date, $${idx + 2}::text)`);
+    bucketValues.push(formatDateOnlyLocal(buckets[i].start), formatDateOnlyLocal(buckets[i].end), buckets[i].label);
+  }
+
+  const result = await pool.query(
+    `WITH buckets(bstart, bend, blabel) AS (VALUES ${paramPlaceholders.join(', ')})
+     SELECT
+       b.blabel AS label,
+       COALESCE(SUM(don.amount), 0) AS donation_amount,
+       COUNT(don.id)::int AS donation_count,
+       COUNT(DISTINCT don.donor_id)::int AS donor_count,
+       COALESCE(AVG(don.amount), 0) AS avg_donation
+     FROM buckets b
+     LEFT JOIN donations don
+       ON don.organization_id = $${buckets.length * 3 + 1}
+       AND don.date >= b.bstart
+       AND don.date <= b.bend
+     GROUP BY b.blabel, b.bstart
+     ORDER BY b.bstart`,
+    [...bucketValues, organizationId],
   );
+
+  const statsByLabel = new Map(result.rows.map((row) => [row.label, row]));
+
+  const points = buckets.map((bucket) => {
+    const row = statsByLabel.get(bucket.label);
+    const donationAmount = row ? parseFloat(row.donation_amount) : 0;
+    const avgDonation = row ? parseFloat(row.avg_donation) : 0;
+    return {
+      label: bucket.label,
+      donation_amount: donationAmount,
+      donation_count: row ? row.donation_count : 0,
+      donors: row ? row.donor_count : 0,
+      avg_donation: avgDonation,
+      donations_k: Number((donationAmount / 1000).toFixed(2)),
+      avg_donation_k: Number((avgDonation / 1000).toFixed(2)),
+      is_highlight: bucket.is_highlight,
+    };
+  });
 
   return {
     subtitle: getChartSubtitle(period, ranges),

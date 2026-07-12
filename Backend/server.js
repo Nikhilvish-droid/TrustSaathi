@@ -73,20 +73,40 @@ app.use((err, req, res, next) => {
 });
 
 
-// Change the bottom of server.js to this:
 // --- START THE SERVER ---
 
-// Verify database connectivity before accepting requests
+// Listen immediately so the event loop stays alive (Express 5 + Node 24 fix)
+const server = app.listen(PORT, () => {
+  console.log(`Server is running and listening on port ${PORT}`);
+});
+
+// Verify database connectivity (non-blocking — server starts regardless)
 testConnection()
   .then(() => ensureComplianceSchema())
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server is running and listening on port ${PORT}`);
-    });
+    console.log('Database fully initialized.');
   })
   .catch((err) => {
-    console.error('Server startup aborted:', err.message);
-    process.exit(1);
+    if (err.message.includes('ENOTFOUND') || err.message.includes('ENETUNREACH')) {
+      console.error('');
+      console.error('╔══════════════════════════════════════════════════════════════╗');
+      console.error('║  DATABASE CONNECTION FAILED                                  ║');
+      console.error('║                                                              ║');
+      console.error('║  Your Supabase project may be PAUSED (free-tier auto-pause). ║');
+      console.error('║                                                              ║');
+      console.error('║  To fix:                                                     ║');
+      console.error('║  1. Go to https://supabase.com/dashboard                     ║');
+      console.error('║  2. Select your project (wgbrjelmcqqvjwqpmekw)               ║');
+      console.error('║  3. Click "Restore project" to unpause                       ║');
+      console.error('║  4. Copy the new DATABASE_URL from Settings > Database       ║');
+      console.error('║  5. Update Backend/.env and restart                          ║');
+      console.error('║                                                              ║');
+      console.error('║  Note: The new URL may use a pooler host (port 6543)         ║');
+      console.error('║  instead of db.*.supabase.co (port 5432).                    ║');
+      console.error('╚══════════════════════════════════════════════════════════════╝');
+      console.error('');
+    }
+    console.warn('⚠️  Database unavailable. API routes requiring the database will fail.');
   });
 
 // Crucial step for Vercel/Render compatibility

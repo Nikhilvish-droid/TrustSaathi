@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Users, Search, Download, UserPlus, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,9 +35,6 @@ function DonorsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<DonorFilter>("all");
-  const [stats, setStats] = useState<DonorStats | null>(null);
-  const [donors, setDonors] = useState<DonorRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -44,23 +42,13 @@ function DonorsPage() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetchDonors(debouncedSearch, filter);
-        setStats(res.stats);
-        setDonors(res.donors);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load donors.");
-        setStats(null);
-        setDonors([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, [debouncedSearch, filter]);
+  const { data: res, isLoading: loading } = useQuery({
+    queryKey: ["donors", debouncedSearch, filter],
+    queryFn: () => fetchDonors(debouncedSearch, filter),
+  });
+
+  const stats = res?.stats ?? null;
+  const donors = res?.donors ?? [];
 
   const statCards = useMemo(() => {
     if (!stats) {
