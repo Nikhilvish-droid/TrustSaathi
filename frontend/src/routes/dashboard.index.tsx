@@ -48,8 +48,6 @@ import {
   type RecentDonation,
 } from "@/lib/donations-api";
 import { getAuthUser } from "@/lib/auth-session";
-import { PricingSection } from "@/components/pricing-section";
-import { FAQSection } from "@/components/faq-section";
 import { formatFullDate } from "@/lib/format";
 
 const PERIOD_OPTIONS: { labelKey: string; value: DashboardPeriod }[] = [
@@ -710,9 +708,6 @@ function DashboardHome() {
           </CardContent>
         </Card>
       </div>
-
-      <PricingSection embedded />
-      <FAQSection embedded />
     </div>
   );
 }
