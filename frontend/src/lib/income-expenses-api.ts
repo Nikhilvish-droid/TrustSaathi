@@ -79,8 +79,7 @@ function formatDecodedLedgerNote(value: unknown): string {
 
   const name = typeof payload.name === "string" ? payload.name.trim() : "";
   const mode = typeof payload.mode === "string" ? payload.mode.trim() : "";
-  const description =
-    typeof payload.description === "string" ? payload.description.trim() : "";
+  const description = typeof payload.description === "string" ? payload.description.trim() : "";
 
   const summary = [name, mode].filter(Boolean).join(" - ");
 

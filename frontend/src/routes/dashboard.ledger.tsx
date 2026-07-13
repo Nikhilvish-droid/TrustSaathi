@@ -42,17 +42,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-shell";
 import { toast } from "sonner";
-import {
-  createLedgerTransaction,
-  fetchLedger,
-} from "@/lib/ledger-api";
+import { createLedgerTransaction, fetchLedger } from "@/lib/ledger-api";
 
 export const Route = createFileRoute("/dashboard/ledger")({
   head: () => ({
-    meta: [
-      { title: "Accounting & Ledger — TrustSaathi" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Accounting & Ledger — TrustSaathi" }, { name: "robots", content: "noindex" }],
   }),
   component: LedgerPage,
 });
@@ -116,7 +110,8 @@ function LedgerPage() {
     return transactions
       .filter((t) => {
         const q = query.trim().toLowerCase();
-        if (q && !`${t.name} ${t.description ?? ""} ${t.category}`.toLowerCase().includes(q)) return false;
+        if (q && !`${t.name} ${t.description ?? ""} ${t.category}`.toLowerCase().includes(q))
+          return false;
         if (range?.from) {
           const d = new Date(t.date);
           if (d < range.from) return false;
@@ -142,8 +137,18 @@ function LedgerPage() {
 
   const exportCsv = () => {
     const header = ["Date", "Name", "Category", "Type", "Payment Mode", "Amount", "Description"];
-    const rows = filtered.map((t) => [t.date, t.name, t.category, t.type, t.mode, t.amount, t.description ?? ""]);
-    const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const rows = filtered.map((t) => [
+      t.date,
+      t.name,
+      t.category,
+      t.type,
+      t.mode,
+      t.amount,
+      t.description ?? "",
+    ]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -167,14 +172,22 @@ function LedgerPage() {
           label="Total Income"
           value={inr(metrics.income)}
           icon={<TrendingUp className="h-5 w-5" />}
-          trend={<span className="inline-flex items-center gap-1 text-success"><ArrowUpRight className="h-3.5 w-3.5" /> +12.4%</span>}
+          trend={
+            <span className="inline-flex items-center gap-1 text-success">
+              <ArrowUpRight className="h-3.5 w-3.5" /> +12.4%
+            </span>
+          }
           tone="text-success"
         />
         <MetricCard
           label="Total Expenses"
           value={inr(metrics.expense)}
           icon={<TrendingDown className="h-5 w-5" />}
-          trend={<span className="inline-flex items-center gap-1 text-destructive"><ArrowDownRight className="h-3.5 w-3.5" /> -4.1%</span>}
+          trend={
+            <span className="inline-flex items-center gap-1 text-destructive">
+              <ArrowDownRight className="h-3.5 w-3.5" /> -4.1%
+            </span>
+          }
           tone="text-destructive"
         />
         <MetricCard
@@ -206,7 +219,13 @@ function LedgerPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("rounded-full justify-start font-normal", !range && "text-muted-foreground")}>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "rounded-full justify-start font-normal",
+                    !range && "text-muted-foreground",
+                  )}
+                >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {range?.from
                     ? range.to
@@ -225,7 +244,9 @@ function LedgerPage() {
                 />
                 {range && (
                   <div className="flex justify-end border-t border-border p-2">
-                    <Button variant="ghost" size="sm" onClick={() => setRange(undefined)}>Clear</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setRange(undefined)}>
+                      Clear
+                    </Button>
                   </div>
                 )}
               </PopoverContent>
@@ -257,27 +278,40 @@ function LedgerPage() {
               </thead>
               <tbody>
                 {filtered.map((t) => (
-                  <tr key={t.id} className="border-b border-border last:border-0 hover:bg-accent/40">
+                  <tr
+                    key={t.id}
+                    className="border-b border-border last:border-0 hover:bg-accent/40"
+                  >
                     <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">
                       {format(new Date(t.date), "d MMM yyyy")}
                     </td>
                     <td className="px-5 py-3">
                       <div className="font-medium">{t.name}</div>
-                      {t.description && <div className="text-xs text-muted-foreground">{t.description}</div>}
+                      {t.description && (
+                        <div className="text-xs text-muted-foreground">{t.description}</div>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{t.category}</td>
                     <td className="px-5 py-3">
                       <TypeBadge type={t.type} />
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{t.mode}</td>
-                    <td className={cn("px-5 py-3 text-right font-semibold whitespace-nowrap", t.type === "Income" ? "text-success" : "text-destructive")}>
+                    <td
+                      className={cn(
+                        "px-5 py-3 text-right font-semibold whitespace-nowrap",
+                        t.type === "Income" ? "text-success" : "text-destructive",
+                      )}
+                    >
                       {t.type === "Income" ? "+" : "−"} {inr(t.amount)}
                     </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                    <td
+                      colSpan={6}
+                      className="px-5 py-12 text-center text-sm text-muted-foreground"
+                    >
                       No transactions match your filters.
                     </td>
                   </tr>
@@ -315,7 +349,9 @@ function MetricCard({
           <p className={cn("mt-1 font-display text-2xl font-semibold truncate", tone)}>{value}</p>
           {trend && <p className="mt-1 text-xs">{trend}</p>}
         </div>
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-primary">{icon}</span>
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-primary">
+          {icon}
+        </span>
       </CardContent>
     </Card>
   );
@@ -391,11 +427,19 @@ function AddTransactionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) reset();
+      }}
+    >
       <DialogContent className="max-w-lg rounded-2xl">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">Add Transaction</DialogTitle>
-          <DialogDescription>Record a new income or expense entry to your ledger.</DialogDescription>
+          <DialogDescription>
+            Record a new income or expense entry to your ledger.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -404,7 +448,10 @@ function AddTransactionDialog({
             <Label>Transaction Type</Label>
             <RadioGroup
               value={type}
-              onValueChange={(v) => { setType(v as TxType); setCategory(""); }}
+              onValueChange={(v) => {
+                setType(v as TxType);
+                setCategory("");
+              }}
               className="grid grid-cols-2 gap-2"
             >
               {(["Income", "Expense"] as const).map((t) => (
@@ -412,11 +459,18 @@ function AddTransactionDialog({
                   key={t}
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium transition",
-                    type === t && (t === "Income" ? "border-success bg-success/10 text-success" : "border-destructive bg-destructive/10 text-destructive")
+                    type === t &&
+                      (t === "Income"
+                        ? "border-success bg-success/10 text-success"
+                        : "border-destructive bg-destructive/10 text-destructive"),
                   )}
                 >
                   <RadioGroupItem value={t} className="sr-only" />
-                  {t === "Income" ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                  {t === "Income" ? (
+                    <ArrowUpRight className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4" />
+                  )}
                   {t}
                 </label>
               ))}
@@ -463,9 +517,15 @@ function AddTransactionDialog({
             <div className="space-y-1.5">
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -474,9 +534,15 @@ function AddTransactionDialog({
             <div className="space-y-1.5">
               <Label>Payment Mode</Label>
               <Select value={mode} onValueChange={(v) => setMode(v as PaymentMode)}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select mode" /></SelectTrigger>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_MODES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  {PAYMENT_MODES.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -484,7 +550,10 @@ function AddTransactionDialog({
 
           {/* Name */}
           <div className="space-y-1.5">
-            <Label>{type === "Income" ? "Donor Name" : "Payee Name"} <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+            <Label>
+              {type === "Income" ? "Donor Name" : "Payee Name"}{" "}
+              <span className="text-muted-foreground font-normal">(Optional)</span>
+            </Label>
             <Input
               placeholder={type === "Income" ? "e.g. Anil Mehta" : "e.g. MSEB"}
               value={name}
@@ -506,8 +575,12 @@ function AddTransactionDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button className="rounded-full" onClick={handleSave}>Save Transaction</Button>
+          <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button className="rounded-full" onClick={handleSave}>
+            Save Transaction
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

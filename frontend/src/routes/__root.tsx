@@ -15,6 +15,7 @@ import "../i18n";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { redirectOAuthHashToCallback } from "../lib/oauth-redirect";
 import { Toaster } from "@/components/ui/sonner";
+import { ChatWidget } from "@/components/chat/chat-widget";
 
 function NotFoundComponent() {
   const { t } = useTranslation();
@@ -180,6 +181,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <ChatWidget />
       <Toaster />
     </QueryClientProvider>
   );
