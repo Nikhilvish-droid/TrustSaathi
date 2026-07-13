@@ -11,6 +11,7 @@ const donorRoutes = require('./routes/donorRoutes');
 const complianceRoutes = require('./routes/complianceRoutes');
 const extractRoutes = require('./routes/extractRoutes');
 const incomeExpenseRoutes = require('./routes/incomeExpenseRoutes');
+const ledgerRoutes = require('./routes/ledgerRoutes');
 const { testConnection } = require('./config/db');
 const { ensureComplianceSchema } = require('./utils/ensureSchema');
 
@@ -46,6 +47,7 @@ app.use('/api/donors', donorRoutes);
 app.use('/api/compliance', complianceRoutes);
 app.use('/api/extract', extractRoutes);
 app.use('/api/income-expenses', incomeExpenseRoutes);
+app.use('/api/ledger', ledgerRoutes);
 
 // Health Check Route (Used by hosting platforms to verify server is alive)
 app.get('/api/health', (req, res) => {

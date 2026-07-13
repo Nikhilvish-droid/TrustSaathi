@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
@@ -42,6 +42,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-shell";
 import { toast } from "sonner";
+import {
+  createLedgerTransaction,
+  fetchLedger,
+} from "@/lib/ledger-api";
 
 export const Route = createFileRoute("/dashboard/ledger")({
   head: () => ({
@@ -79,18 +83,6 @@ const EXPENSE_CATEGORIES = [
 ] as const;
 const PAYMENT_MODES: PaymentMode[] = ["UPI", "Cash", "Bank Transfer", "Cheque"];
 
-// ---------- Mock seed data ----------
-const seed: Transaction[] = [
-  { id: "t1", date: "2026-06-30", name: "Anil Mehta", category: "Donation", type: "Income", mode: "UPI", amount: 51000, description: "Annadaan seva" },
-  { id: "t2", date: "2026-06-29", name: "MSEB", category: "Electricity", type: "Expense", mode: "Bank Transfer", amount: 12210, description: "June bill" },
-  { id: "t3", date: "2026-06-28", name: "Sunita Rao", category: "Membership", type: "Income", mode: "UPI", amount: 5000 },
-  { id: "t4", date: "2026-06-27", name: "Weekly Hundi", category: "Donation", type: "Income", mode: "Cash", amount: 46300, description: "Sunday count" },
-  { id: "t5", date: "2026-06-26", name: "Pandit Sharma", category: "Salary", type: "Expense", mode: "Bank Transfer", amount: 22000 },
-  { id: "t6", date: "2026-06-25", name: "Plumber", category: "Maintenance", type: "Expense", mode: "Cash", amount: 3400, description: "Kitchen tap repair" },
-  { id: "t7", date: "2026-06-24", name: "State Grant Board", category: "Grant", type: "Income", mode: "Bank Transfer", amount: 42700, description: "Q2 disbursement" },
-  { id: "t8", date: "2026-06-22", name: "Diya Suppliers", category: "Festival", type: "Expense", mode: "UPI", amount: 4890 },
-];
-
 // ---------- Helpers ----------
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -100,10 +92,24 @@ const inr = (n: number) =>
   }).format(n);
 
 function LedgerPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(seed);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<DateRange | undefined>();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        const response = await fetchLedger();
+        setTransactions(response.transactions);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load transactions.";
+        toast.error(message);
+      }
+    };
+
+    loadTransactions();
+  }, []);
 
   // ---------- Derived ----------
   const filtered = useMemo(() => {
@@ -128,8 +134,9 @@ function LedgerPage() {
   }, [filtered]);
 
   // ---------- Actions ----------
-  const addTransaction = (tx: Omit<Transaction, "id">) => {
-    setTransactions((prev) => [{ ...tx, id: crypto.randomUUID() }, ...prev]);
+  const addTransaction = async (tx: Omit<Transaction, "id">) => {
+    const response = await createLedgerTransaction(tx);
+    setTransactions((prev) => [response.transaction, ...prev]);
     toast.success("Transaction saved");
   };
 
@@ -337,7 +344,7 @@ function AddTransactionDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSubmit: (tx: Omit<Transaction, "id">) => void;
+  onSubmit: (tx: Omit<Transaction, "id">) => Promise<void>;
 }) {
   const [type, setType] = useState<TxType>("Income");
   const [date, setDate] = useState<Date>(new Date());
@@ -359,23 +366,28 @@ function AddTransactionDialog({
     setDescription("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const amt = Number(amount);
     if (!amt || amt <= 0) return toast.error("Enter a valid amount");
     if (!category) return toast.error("Choose a category");
     if (!mode) return toast.error("Choose a payment mode");
 
-    onSubmit({
-      date: format(date, "yyyy-MM-dd"),
-      name: name.trim() || (type === "Income" ? "Anonymous Donor" : "Payee"),
-      category,
-      type,
-      mode: mode as PaymentMode,
-      amount: amt,
-      description: description.trim() || undefined,
-    });
-    reset();
-    onOpenChange(false);
+    try {
+      await onSubmit({
+        date: format(date, "yyyy-MM-dd"),
+        name: name.trim() || (type === "Income" ? "Anonymous Donor" : "Payee"),
+        category,
+        type,
+        mode: mode as PaymentMode,
+        amount: amt,
+        description: description.trim() || undefined,
+      });
+      reset();
+      onOpenChange(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save transaction.";
+      toast.error(message);
+    }
   };
 
   return (

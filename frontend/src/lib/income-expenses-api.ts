@@ -66,6 +66,52 @@ export function deleteIncomeExpense(id: string) {
   });
 }
 
+const LEDGER_NOTE_META_PREFIX = "TS_LEDGER_META::";
+
+function formatDecodedLedgerNote(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+
+  const payload = value as {
+    name?: unknown;
+    mode?: unknown;
+    description?: unknown;
+  };
+
+  const name = typeof payload.name === "string" ? payload.name.trim() : "";
+  const mode = typeof payload.mode === "string" ? payload.mode.trim() : "";
+  const description =
+    typeof payload.description === "string" ? payload.description.trim() : "";
+
+  const summary = [name, mode].filter(Boolean).join(" - ");
+
+  if (summary && description) return `${summary}: ${description}`;
+  if (description) return description;
+  if (summary) return summary;
+  return "";
+}
+
+function normalizeNote(note: string | null): string {
+  const raw = (note ?? "").trim();
+  if (!raw) return "";
+
+  const encoded = raw.startsWith(LEDGER_NOTE_META_PREFIX)
+    ? raw.slice(LEDGER_NOTE_META_PREFIX.length)
+    : raw;
+
+  // Handles both prefixed metadata notes and plain JSON note payloads.
+  if (encoded.startsWith("{") && encoded.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(encoded);
+      const formatted = formatDecodedLedgerNote(parsed);
+      if (formatted) return formatted;
+    } catch {
+      // Fall back to the original note when JSON parsing fails.
+    }
+  }
+
+  return raw;
+}
+
 function toDateOnly(value: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const d = new Date(value);
@@ -82,7 +128,7 @@ export function mapIncomeExpenseRecord(row: IncomeExpenseRecord) {
     date: toDateOnly(row.date),
     category: row.category,
     type: row.type,
-    note: row.note ?? "",
+    note: normalizeNote(row.note),
     amount: Number(row.amount),
   };
 }
