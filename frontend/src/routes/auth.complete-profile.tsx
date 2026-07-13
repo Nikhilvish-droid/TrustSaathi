@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { Flower2, Lock, Building2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/auth/complete-profile")({
 });
 
 function CompleteProfilePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { email: emailFromSearch } = Route.useSearch();
   const email = emailFromSearch ?? getAuthUser()?.email ?? "";
@@ -45,16 +47,16 @@ function CompleteProfilePage() {
     setError("");
 
     if (!email) {
-      setError("Missing account email. Please sign in with Google again.");
+      setError(t("auth.completeProfile.errorMissingEmail"));
       return;
     }
     if (!form.organization_name.trim() || !form.password) {
-      setError("Trust name and password are required.");
+      setError(t("auth.completeProfile.errorRequired"));
       return;
     }
 
     if (form.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+      setError(t("auth.completeProfile.errorPasswordMin"));
       return;
     }
 
@@ -69,10 +71,10 @@ function CompleteProfilePage() {
       });
 
       setAuthSession(result.token, result.user);
-      toast.success("Profile completed — Jai Shree Krishna 🙏");
+      toast.success(t("auth.completeProfile.toastSuccess"));
       void navigate({ href: consumeReturnUrl() });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to complete profile.");
+      setError(err instanceof Error ? err.message : t("auth.completeProfile.errorFailed"));
     } finally {
       setLoading(false);
     }
@@ -93,16 +95,17 @@ function CompleteProfilePage() {
             <span className="font-display text-xl font-semibold">TrustSaathi</span>
           </Link>
           <Link to="/auth" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Back to sign in
+            {t("auth.backToSignIn")}
           </Link>
         </div>
       </header>
 
       <main className="relative mx-auto max-w-lg px-4 py-14 sm:px-6 lg:py-20">
         <Card className="rounded-3xl border-border bg-card p-6 shadow-card sm:p-8">
-          <h1 className="font-display text-2xl font-semibold">Complete your trust profile</h1>
+          <h1 className="font-display text-2xl font-semibold">{t("auth.completeProfile.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Setting up the account for <span className="font-medium text-foreground">{email}</span>
+            {t("auth.completeProfile.subtitle")}{" "}
+            <span className="font-medium text-foreground">{email}</span>
           </p>
 
           {error && (
@@ -113,7 +116,7 @@ function CompleteProfilePage() {
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
             <div className="space-y-1.5">
-              <Label htmlFor="organization_name">Temple / Trust name *</Label>
+              <Label htmlFor="organization_name">{t("auth.completeProfile.orgLabel")}</Label>
               <div className="relative">
                 <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -129,7 +132,7 @@ function CompleteProfilePage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="reg_number">Registration number (optional)</Label>
+              <Label htmlFor="reg_number">{t("auth.completeProfile.regLabel")}</Label>
               <Input
                 id="reg_number"
                 name="reg_number"
@@ -140,7 +143,7 @@ function CompleteProfilePage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Set a fallback password *</Label>
+              <Label htmlFor="password">{t("auth.completeProfile.passwordLabel")}</Label>
               <div className="relative">
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -149,21 +152,23 @@ function CompleteProfilePage() {
                   type="password"
                   value={form.password}
                   onChange={handleChange}
-                  placeholder="For manual login in the future"
+                  placeholder={t("auth.completeProfile.passwordPlaceholder")}
                   className="pl-9"
                   minLength={8}
                   required
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Minimum 8 characters.</p>
+              <p className="text-xs text-muted-foreground">
+                {t("auth.completeProfile.passwordHint")}
+              </p>
             </div>
 
             <Button type="submit" size="lg" className="w-full rounded-full" disabled={loading}>
               {loading ? (
-                "Saving profile…"
+                t("auth.completeProfile.saveButton")
               ) : (
                 <>
-                  Complete setup & enter dashboard <ArrowRight className="ml-1 h-4 w-4" />
+                  {t("auth.completeProfile.submitButton")} <ArrowRight className="ml-1 h-4 w-4" />
                 </>
               )}
             </Button>

@@ -67,7 +67,10 @@ function escapeCsvField(value: string | number): string {
 }
 
 /** Table-only CSV — no title, stats, or org header. */
-export function downloadCsvFromTemplate(template: ExportTemplate, rows: Record<string, unknown>[]): void {
+export function downloadCsvFromTemplate(
+  template: ExportTemplate,
+  rows: Record<string, unknown>[],
+): void {
   const { headers, body } = buildSheetRows(template, rows, "csv");
   const lines = [
     headers.map(escapeCsvField).join(","),
@@ -88,7 +91,10 @@ function columnWidthFor(field: string, format?: ExportColumnDef["format"]): numb
 }
 
 /** Table-only Excel — no title, stats, or org header. */
-export function downloadExcelFromTemplate(template: ExportTemplate, rows: Record<string, unknown>[]): void {
+export function downloadExcelFromTemplate(
+  template: ExportTemplate,
+  rows: Record<string, unknown>[],
+): void {
   const { headers, body } = buildSheetRows(template, rows, "excel");
   const ws = XLSX.utils.aoa_to_sheet([headers, ...body]);
 

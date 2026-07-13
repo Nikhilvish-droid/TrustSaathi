@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, Link, redirect } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Bell, Search, UserCircle2 } from "lucide-react";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getAuthToken, getAuthUser, logout, saveReturnUrl } from "@/lib/auth-session";
 import { SiteFooter } from "@/components/site-footer";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -18,7 +20,10 @@ export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
       { title: "Dashboard — TrustSaathi" },
-      { name: "description", content: "Manage donations, accounts and compliance from one dashboard." },
+      {
+        name: "description",
+        content: "Manage donations, accounts and compliance from one dashboard.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -26,18 +31,22 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardLayout() {
+  const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const user = getAuthUser();
-  const initials = mounted && user?.name
-    ? user.name
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "TS";
+  const initials =
+    mounted && user?.name
+      ? user.name
+          .split(" ")
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase()
+      : "TS";
   const displayName = mounted && user?.name ? user.name : "TrustSaathi User";
 
   return (
@@ -49,15 +58,21 @@ function DashboardLayout() {
             <SidebarTrigger />
             <div className="relative hidden flex-1 max-w-md md:block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search donors, donations, receipts…" className="rounded-full pl-9" />
+              <Input placeholder={t("dashboard.searchPlaceholder")} className="rounded-full pl-9" />
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <LanguageSwitcher variant="compact" />
               <Button variant="ghost" size="icon" className="relative rounded-full">
                 <Bell className="h-5 w-5" />
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
               </Button>
-              <Link to="/dashboard/settings" className="flex items-center gap-2 rounded-full border border-border bg-background px-2 py-1 pr-3 hover:bg-accent">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">{initials}</span>
+              <Link
+                to="/dashboard/settings"
+                className="flex items-center gap-2 rounded-full border border-border bg-background px-2 py-1 pr-3 hover:bg-accent"
+              >
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                  {initials}
+                </span>
                 <span className="hidden text-sm font-medium sm:inline">{displayName}</span>
                 <UserCircle2 className="hidden h-4 w-4 text-muted-foreground sm:inline" />
               </Link>

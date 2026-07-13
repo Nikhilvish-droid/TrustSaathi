@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTranslation, Trans } from "react-i18next";
 import {
   Sparkles,
   ShieldCheck,
@@ -20,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { PricingSection } from "@/components/pricing-section";
 import { FAQSection } from "@/components/faq-section";
 import { SiteFooter } from "@/components/site-footer";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,7 +33,11 @@ export const Route = createFileRoute("/")({
           "Digitize your temple, trust or NGO in minutes. Manage donations, accounts, donors and audit reports with AI — built for India.",
       },
       { property: "og:title", content: "TrustSaathi — Temple, Trust & NGO Finance Software" },
-      { property: "og:description", content: "AI-powered donation, accounting and compliance management for Indian temples, trusts and NGOs." },
+      {
+        property: "og:description",
+        content:
+          "AI-powered donation, accounting and compliance management for Indian temples, trusts and NGOs.",
+      },
       { property: "og:url", content: "/" },
     ],
     links: [{ rel: "canonical", href: "/" }],
@@ -40,6 +46,7 @@ export const Route = createFileRoute("/")({
 });
 
 function TopNav() {
+  const { t } = useTranslation();
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
@@ -50,19 +57,32 @@ function TopNav() {
           <span className="font-display text-xl font-semibold">TrustSaathi</span>
         </Link>
         <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
-          <a href="#features" className="hover:text-foreground">Features</a>
-          <a href="#how" className="hover:text-foreground">How AI works</a>
-          <a href="#pricing" className="hover:text-foreground">Pricing</a>
-          <a href="#faq" className="hover:text-foreground">FAQ</a>
-          <a href="#contact" className="hover:text-foreground">Contact</a>
+          <a href="#features" className="hover:text-foreground">
+            {t("nav.features")}
+          </a>
+          <a href="#how" className="hover:text-foreground">
+            {t("nav.howItWorks")}
+          </a>
+          <a href="#pricing" className="hover:text-foreground">
+            {t("nav.pricing")}
+          </a>
+          <a href="#faq" className="hover:text-foreground">
+            {t("nav.faq")}
+          </a>
+          <a href="#contact" className="hover:text-foreground">
+            {t("nav.contact")}
+          </a>
         </nav>
         <div className="flex items-center gap-2">
+          <LanguageSwitcher className="mr-1" />
           <Button asChild variant="ghost" className="hidden rounded-full sm:inline-flex">
-            <Link to="/auth" hash="signin">Sign in</Link>
+            <Link to="/auth" hash="signin">
+              {t("nav.signIn")}
+            </Link>
           </Button>
           <Button asChild className="rounded-full">
             <Link to="/auth" hash="signup">
-              Sign up <ArrowRight className="ml-1 h-4 w-4" />
+              {t("nav.signUp")} <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </Button>
         </div>
@@ -72,6 +92,7 @@ function TopNav() {
 }
 
 function Hero() {
+  const { t } = useTranslation();
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 bg-grain opacity-60" />
@@ -80,29 +101,34 @@ function Hero() {
       <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-12 lg:py-28">
         <div className="lg:col-span-7">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground">
-            <Sparkles className="h-3.5 w-3.5" /> AI-powered • Made for India
+            <Sparkles className="h-3.5 w-3.5" /> {t("hero.badge")}
           </div>
           <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.05] text-foreground sm:text-5xl lg:text-6xl">
-            Finance & compliance, <span className="text-primary">made simple</span> for temples and trusts.
+            <Trans i18nKey="hero.title" components={{ 1: <span className="text-primary" /> }} />
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
-            TrustSaathi helps temples, trusts and NGOs manage donations, accounts, donors,
-            and audit-ready reports — even from handwritten registers. No accounting jargon.
+            {t("hero.subtitle")}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="rounded-full px-7 text-base">
               <Link to="/dashboard">
-                Digitize Your Temple in Minutes <ArrowRight className="ml-2 h-4 w-4" />
+                {t("hero.cta")} <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="rounded-full px-7 text-base">
-              <a href="#how">See how it works</a>
+              <a href="#how">{t("hero.ctaSecondary")}</a>
             </Button>
           </div>
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-success" /> 80G & FCRA ready</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-success" /> Works in Hindi & English</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-success" /> Used by 200+ temples</span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success" /> {t("hero.bullet1")}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success" /> {t("hero.bullet2")}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success" /> {t("hero.bullet3")}
+            </span>
           </div>
         </div>
 
@@ -111,21 +137,25 @@ function Hero() {
             <div className="rounded-2xl bg-gradient-to-br from-accent via-card to-card p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Jai Shree Krishna 🙏</p>
-                  <p className="font-display text-lg font-semibold">Today's Snapshot</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.greeting")}</p>
+                  <p className="font-display text-lg font-semibold">{t("hero.snapshotTitle")}</p>
                 </div>
-                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">Live</span>
+                <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                  {t("hero.live")}
+                </span>
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 {[
-                  { label: "Donations", value: "₹2,84,500", delta: "+12.4%" },
-                  { label: "Donors", value: "1,248", delta: "+38" },
-                  { label: "Expenses", value: "₹74,210", delta: "-3.1%" },
-                  { label: "Net Surplus", value: "₹2,10,290", delta: "+18%" },
+                  { label: t("hero.donations"), value: "₹2,84,500", delta: "+12.4%" },
+                  { label: t("hero.donors"), value: "1,248", delta: "+38" },
+                  { label: t("hero.expenses"), value: "₹74,210", delta: "-3.1%" },
+                  { label: t("hero.netSurplus"), value: "₹2,10,290", delta: "+18%" },
                 ].map((k) => (
                   <div key={k.label} className="rounded-xl border border-border bg-background p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{k.label}</p>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {k.label}
+                    </p>
                     <p className="mt-1 font-display text-lg font-semibold">{k.value}</p>
                     <p className="text-xs text-success">{k.delta}</p>
                   </div>
@@ -135,10 +165,14 @@ function Hero() {
               <div className="mt-4 rounded-xl border border-border bg-background p-4">
                 <div className="flex items-end gap-1.5">
                   {[40, 65, 50, 80, 60, 95, 72, 88, 70, 92, 78, 100].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-t bg-primary/80" style={{ height: `${h * 0.7}px` }} />
+                    <div
+                      key={i}
+                      className="flex-1 rounded-t bg-primary/80"
+                      style={{ height: `${h * 0.7}px` }}
+                    />
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">Monthly donations · ₹ in thousands</p>
+                <p className="mt-2 text-xs text-muted-foreground">{t("hero.monthlyDonations")}</p>
               </div>
             </div>
           </div>
@@ -149,31 +183,33 @@ function Hero() {
 }
 
 function Features() {
+  const { t } = useTranslation();
   const features = [
-    { icon: HandCoins, title: "Donations & Receipts", desc: "Add donations in seconds and auto-generate printable 80G receipts." },
-    { icon: Users, title: "Donor Management", desc: "One place for every donor — history, PAN, repeat donations and exports." },
-    { icon: Receipt, title: "Income & Expenses", desc: "Simple categories. No accounting terms. Anyone on your team can use it." },
-    { icon: Landmark, title: "Trust Accounting", desc: "Cash book, bank book, trial balance and balance sheet — done for you." },
-    { icon: ShieldCheck, title: "Donor Audit", desc: "Audit readiness score, missing mobile & PAN alerts, and quick donor edits." },
-    { icon: Upload, title: "AI Document Upload", desc: "Upload handwritten registers, receipts or PDFs — AI does the data entry." },
-    { icon: Building2, title: "Assets & Inventory", desc: "Track land, gold, vehicles, furniture and temple inventory in one register." },
-    { icon: BarChart3, title: "Reports", desc: "PDF, Excel or CSV — donation, donor, expense and audit reports in one click." },
+    { icon: HandCoins, title: t("features.donationsTitle"), desc: t("features.donationsDesc") },
+    { icon: Users, title: t("features.donorsTitle"), desc: t("features.donorsDesc") },
+    { icon: Receipt, title: t("features.incomeTitle"), desc: t("features.incomeDesc") },
+    { icon: Landmark, title: t("features.trustTitle"), desc: t("features.trustDesc") },
+    { icon: ShieldCheck, title: t("features.auditTitle"), desc: t("features.auditDesc") },
+    { icon: Upload, title: t("features.uploadTitle"), desc: t("features.uploadDesc") },
+    { icon: Building2, title: t("features.assetsTitle"), desc: t("features.assetsDesc") },
+    { icon: BarChart3, title: t("features.reportsTitle"), desc: t("features.reportsDesc") },
   ];
   return (
     <section id="features" className="border-t border-border bg-secondary/40">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <div className="max-w-2xl">
-          <p className="text-sm font-medium text-primary">Everything you need</p>
+          <p className="text-sm font-medium text-primary">{t("features.label")}</p>
           <h2 className="mt-2 font-display text-3xl font-semibold sm:text-4xl">
-            A complete finance system, designed for temples and trusts.
+            {t("features.title")}
           </h2>
-          <p className="mt-3 text-muted-foreground">
-            Built with the trustee, accountant and pandit in mind. No clutter, no jargon.
-          </p>
+          <p className="mt-3 text-muted-foreground">{t("features.subtitle")}</p>
         </div>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f) => (
-            <Card key={f.title} className="rounded-2xl border-border p-6 shadow-soft transition hover:-translate-y-0.5 hover:shadow-card">
+            <Card
+              key={f.title}
+              className="rounded-2xl border-border p-6 shadow-soft transition hover:-translate-y-0.5 hover:shadow-card"
+            >
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent text-primary">
                 <f.icon className="h-5 w-5" />
               </div>
@@ -188,20 +224,21 @@ function Features() {
 }
 
 function HowAI() {
+  const { t } = useTranslation();
   const steps = [
-    { n: "01", title: "Upload your registers", desc: "Snap photos of handwritten donation registers, bank statements or receipts." },
-    { n: "02", title: "AI reads & organises", desc: "Our AI extracts donor names, amounts, dates and payment modes automatically." },
-    { n: "03", title: "Review & approve", desc: "A trustee reviews the extracted entries in plain language and approves them." },
-    { n: "04", title: "Reports in one click", desc: "Audit-ready reports, 80G receipts and compliance alerts — instantly." },
+    { n: "01", title: t("howItWorks.step1Title"), desc: t("howItWorks.step1Desc") },
+    { n: "02", title: t("howItWorks.step2Title"), desc: t("howItWorks.step2Desc") },
+    { n: "03", title: t("howItWorks.step3Title"), desc: t("howItWorks.step3Desc") },
+    { n: "04", title: t("howItWorks.step4Title"), desc: t("howItWorks.step4Desc") },
   ];
   return (
     <section id="how" className="border-t border-border">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <div className="mandala-divider mx-auto mb-12 w-40" />
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-medium text-primary">How AI works</p>
+          <p className="text-sm font-medium text-primary">{t("howItWorks.label")}</p>
           <h2 className="mt-2 font-display text-3xl font-semibold sm:text-4xl">
-            From paper registers to clean accounts — in 4 simple steps.
+            {t("howItWorks.title")}
           </h2>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -219,27 +256,42 @@ function HowAI() {
 }
 
 function Testimonials() {
+  const { t } = useTranslation();
   const items = [
-    { name: "Shri Ramesh Joshi", role: "Trustee, Shree Ganesh Mandir, Pune", quote: "We digitised 20 years of donation registers in two weeks. Our auditor was very happy." },
-    { name: "Sunita Iyer", role: "Accountant, Seva Foundation NGO", quote: "Even our senior volunteers can add donations. The 80G receipts are a blessing." },
-    { name: "Pandit Mohan Sharma", role: "Pujari, Shri Hanuman Trust", quote: "I just take a photo of the register. TrustSaathi does the rest. Truly a saathi." },
+    {
+      name: t("testimonials.name1"),
+      role: t("testimonials.role1"),
+      quote: t("testimonials.quote1"),
+    },
+    {
+      name: t("testimonials.name2"),
+      role: t("testimonials.role2"),
+      quote: t("testimonials.quote2"),
+    },
+    {
+      name: t("testimonials.name3"),
+      role: t("testimonials.role3"),
+      quote: t("testimonials.quote3"),
+    },
   ];
   return (
     <section className="border-t border-border bg-accent/40">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-        <h2 className="font-display text-3xl font-semibold sm:text-4xl">Trusted by temples and trusts across India</h2>
+        <h2 className="font-display text-3xl font-semibold sm:text-4xl">
+          {t("testimonials.title")}
+        </h2>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {items.map((t) => (
-            <Card key={t.name} className="rounded-2xl border-border bg-card p-6 shadow-soft">
+          {items.map((tItem) => (
+            <Card key={tItem.name} className="rounded-2xl border-border bg-card p-6 shadow-soft">
               <div className="flex gap-1 text-primary">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} className="h-4 w-4 fill-current" />
                 ))}
               </div>
-              <p className="mt-4 leading-relaxed text-foreground">"{t.quote}"</p>
+              <p className="mt-4 leading-relaxed text-foreground">"{tItem.quote}"</p>
               <div className="mt-5">
-                <p className="font-semibold">{t.name}</p>
-                <p className="text-sm text-muted-foreground">{t.role}</p>
+                <p className="font-semibold">{tItem.name}</p>
+                <p className="text-sm text-muted-foreground">{tItem.role}</p>
               </div>
             </Card>
           ))}

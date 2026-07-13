@@ -1,23 +1,40 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { HandCoins, Loader2, Printer, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/page-shell";
 import { createDonation } from "@/lib/donations-api";
 import { PAYMENT_MODES } from "@/lib/ai-upload-types";
 
 export const Route = createFileRoute("/dashboard/donations")({
-  head: () => ({ meta: [{ title: "Donations — TrustSaathi" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Donations — TrustSaathi" }, { name: "robots", content: "noindex" }],
+  }),
   component: DonationsPage,
 });
 
-const PURPOSES = ["General", "Annadaan", "Pooja Seva", "Construction", "Festival", "Education", "Healthcare"] as const;
+const PURPOSE_KEYS = [
+  "General",
+  "Annadaan",
+  "Pooja Seva",
+  "Construction",
+  "Festival",
+  "Education",
+  "Healthcare",
+] as const;
 
 type DonationForm = {
   donor_name: string;
@@ -47,22 +64,24 @@ function todayIsoDate() {
   return new Date().toISOString().split("T")[0];
 }
 
-function validateForm(form: DonationForm): string | null {
-  if (!form.donor_name.trim()) return "Donor name is required.";
-  const amount = Number(form.amount);
-  if (!form.amount || Number.isNaN(amount) || amount <= 0) return "Enter a valid donation amount.";
-  if (!form.date) return "Date is required.";
-  if (!form.payment_mode) return "Payment method is required.";
-  return null;
-}
-
 function DonationsPage() {
+  const { t } = useTranslation();
   const [form, setForm] = useState<DonationForm>({ ...EMPTY_FORM, date: todayIsoDate() });
   const [saving, setSaving] = useState(false);
 
   const updateField = <K extends keyof DonationForm>(key: K, value: DonationForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
+
+  function validateForm(f: DonationForm): string | null {
+    if (!f.donor_name.trim()) return t("donations.validation.donorRequired");
+    const amount = Number(f.amount);
+    if (!f.amount || Number.isNaN(amount) || amount <= 0)
+      return t("donations.validation.amountInvalid");
+    if (!f.date) return t("donations.validation.dateRequired");
+    if (!f.payment_mode) return t("donations.validation.paymentRequired");
+    return null;
+  }
 
   const handleSave = async () => {
     const validationError = validateForm(form);
@@ -97,14 +116,14 @@ function DonationsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
-        title="Add a Donation"
-        subtitle="Fill in the details below — we'll generate a printable receipt instantly."
+        title={t("donations.pageTitle")}
+        subtitle={t("donations.pageSubtitle")}
         icon={HandCoins}
       />
 
       <Card className="rounded-2xl border-border shadow-soft">
         <CardHeader>
-          <CardTitle className="font-display text-lg">Donation Details</CardTitle>
+          <CardTitle className="font-display text-lg">{t("donations.detailsTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -114,44 +133,44 @@ function DonationsPage() {
               void handleSave();
             }}
           >
-            <Field label="Donor Name *">
+            <Field label={t("donations.donorName")}>
               <Input
-                placeholder="e.g. Shri Anil Mehta"
+                placeholder={t("donations.donorNamePlaceholder")}
                 className="rounded-xl"
                 value={form.donor_name}
                 onChange={(e) => updateField("donor_name", e.target.value)}
                 required
               />
             </Field>
-            <Field label="Phone Number">
+            <Field label={t("donations.phone")}>
               <Input
-                placeholder="+91 98xxx xxxxx"
+                placeholder={t("donations.phonePlaceholder")}
                 className="rounded-xl"
                 value={form.phone}
                 onChange={(e) => updateField("phone", e.target.value)}
               />
             </Field>
-            <Field label="PAN (for 80G)">
+            <Field label={t("donations.pan")}>
               <Input
-                placeholder="ABCDE1234F"
+                placeholder={t("donations.panPlaceholder")}
                 className="rounded-xl"
                 value={form.pan}
                 onChange={(e) => updateField("pan", e.target.value)}
               />
             </Field>
-            <Field label="Donation Amount (₹) *">
+            <Field label={t("donations.amount")}>
               <Input
                 type="number"
                 min="1"
                 step="1"
-                placeholder="5100"
+                placeholder={t("donations.amountPlaceholder")}
                 className="rounded-xl"
                 value={form.amount}
                 onChange={(e) => updateField("amount", e.target.value)}
                 required
               />
             </Field>
-            <Field label="Date *">
+            <Field label={t("donations.date")}>
               <Input
                 type="date"
                 className="rounded-xl"
@@ -160,10 +179,13 @@ function DonationsPage() {
                 required
               />
             </Field>
-            <Field label="Payment Method *">
-              <Select value={form.payment_mode || undefined} onValueChange={(v) => updateField("payment_mode", v)}>
+            <Field label={t("donations.paymentMethod")}>
+              <Select
+                value={form.payment_mode || undefined}
+                onValueChange={(v) => updateField("payment_mode", v)}
+              >
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select a method" />
+                  <SelectValue placeholder={t("donations.selectMethod")} />
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_MODES.filter((m) => m !== "Unknown").map((m) => (
@@ -174,31 +196,34 @@ function DonationsPage() {
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Purpose">
-              <Select value={form.purpose || undefined} onValueChange={(v) => updateField("purpose", v)}>
+            <Field label={t("donations.purpose")}>
+              <Select
+                value={form.purpose || undefined}
+                onValueChange={(v) => updateField("purpose", v)}
+              >
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select a purpose" />
+                  <SelectValue placeholder={t("donations.selectPurpose")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {PURPOSES.map((p) => (
+                  {PURPOSE_KEYS.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {p}
+                      {t(`donations.purposes.${p}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Receipt Number">
+            <Field label={t("donations.receiptNumber")}>
               <Input
-                placeholder="Auto-generated · TS-2026-00482"
+                placeholder={t("donations.receiptPlaceholder")}
                 className="rounded-xl"
                 value={form.receipt_number}
                 onChange={(e) => updateField("receipt_number", e.target.value)}
               />
             </Field>
-            <Field label="Remarks" full>
+            <Field label={t("donations.remarks")} full>
               <Textarea
-                placeholder="Any extra notes…"
+                placeholder={t("donations.remarksPlaceholder")}
                 className="min-h-[90px] rounded-xl"
                 value={form.remarks}
                 onChange={(e) => updateField("remarks", e.target.value)}
@@ -212,14 +237,12 @@ function DonationsPage() {
                 ) : (
                   <Save className="mr-1.5 h-4 w-4" />
                 )}
-                Save Donation
+                {t("donations.saveDonation")}
               </Button>
               <Button type="button" variant="outline" className="rounded-full" disabled={saving}>
-                <Printer className="mr-1.5 h-4 w-4" /> Save & Print Receipt
+                <Printer className="mr-1.5 h-4 w-4" /> {t("donations.savePrint")}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                An 80G receipt is generated automatically when PAN is provided.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("donations.receiptNote")}</p>
             </div>
           </form>
         </CardContent>
@@ -228,7 +251,15 @@ function DonationsPage() {
   );
 }
 
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+function Field({
+  label,
+  children,
+  full,
+}: {
+  label: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
   return (
     <div className={full ? "sm:col-span-2 space-y-1.5" : "space-y-1.5"}>
       <Label className="text-sm font-medium">{label}</Label>

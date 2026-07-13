@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -49,25 +50,31 @@ import {
 import { getAuthUser } from "@/lib/auth-session";
 import { PricingSection } from "@/components/pricing-section";
 import { FAQSection } from "@/components/faq-section";
+import { formatFullDate } from "@/lib/format";
 
-const PERIOD_OPTIONS: { label: string; value: DashboardPeriod }[] = [
-  { label: "Today", value: "today" },
-  { label: "This Month", value: "month" },
-  { label: "This Year", value: "fy" },
-  { label: "Lifetime", value: "lifetime" },
+const PERIOD_OPTIONS: { labelKey: string; value: DashboardPeriod }[] = [
+  { labelKey: "dashboard.periods.today", value: "today" },
+  { labelKey: "dashboard.periods.month", value: "month" },
+  { labelKey: "dashboard.periods.fy", value: "fy" },
+  { labelKey: "dashboard.periods.lifetime", value: "lifetime" },
 ];
 
 export const Route = createFileRoute("/dashboard/")({
   head: () => ({
-    meta: [
-      { title: "Dashboard — TrustSaathi" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Dashboard — TrustSaathi" }, { name: "robots", content: "noindex" }],
   }),
   component: DashboardHome,
 });
 
-const MODE_COLORS = ["hsl(38 70% 42%)", "hsl(150 50% 45%)", "hsl(220 50% 55%)", "hsl(280 45% 55%)", "hsl(25 75% 55%)", "hsl(200 60% 50%)", "hsl(340 55% 55%)"];
+const MODE_COLORS = [
+  "hsl(38 70% 42%)",
+  "hsl(150 50% 45%)",
+  "hsl(220 50% 55%)",
+  "hsl(280 45% 55%)",
+  "hsl(25 75% 55%)",
+  "hsl(200 60% 50%)",
+  "hsl(340 55% 55%)",
+];
 
 function modeColor(index: number): string {
   return MODE_COLORS[index % MODE_COLORS.length];
@@ -100,7 +107,15 @@ function PaymentModeLabel(props: PieLabelProps) {
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+    <text
+      x={x}
+      y={y}
+      fill="white"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={11}
+      fontWeight={600}
+    >
       {`${share.toFixed(0)}%`}
     </text>
   );
@@ -121,6 +136,7 @@ function DonationOverviewTooltip({
   payload?: Array<{ dataKey?: string; payload?: ChartOverviewPoint }>;
   label?: string;
 }) {
+  const { t } = useTranslation();
   if (!active || !payload?.length) return null;
   const row =
     payload.find((p) => p.dataKey === "donations_k")?.payload ??
@@ -134,16 +150,20 @@ function DonationOverviewTooltip({
     >
       <p className="font-semibold">{label}</p>
       <p className="text-muted-foreground">
-        Total donations: <span className="font-medium text-foreground">{formatInr(row.donation_amount)}</span>
+        {t("dashboard.charts.totalDonations")}{" "}
+        <span className="font-medium text-foreground">{formatInr(row.donation_amount)}</span>
       </p>
       <p className="text-muted-foreground">
-        Donation records: <span className="font-medium text-foreground">{row.donation_count}</span>
+        {t("dashboard.charts.donationRecords")}{" "}
+        <span className="font-medium text-foreground">{row.donation_count}</span>
       </p>
       <p className="text-muted-foreground">
-        Avg donation: <span className="font-medium text-foreground">{formatInr(row.avg_donation)}</span>
+        {t("dashboard.charts.avgDonationLabel")}{" "}
+        <span className="font-medium text-foreground">{formatInr(row.avg_donation)}</span>
       </p>
       <p className="text-muted-foreground">
-        Unique donors: <span className="font-medium text-foreground">{row.donors}</span>
+        {t("dashboard.charts.uniqueDonors")}{" "}
+        <span className="font-medium text-foreground">{row.donors}</span>
       </p>
     </div>
   );
@@ -155,16 +175,7 @@ function getFirstName(fullName?: string): string {
   return parts[0] ?? "there";
 }
 
-function formatTodayDate(): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date());
-}
-
-function buildKpis(data: DonationSummaryData) {
+function buildKpis(data: DonationSummaryData, t: (key: string) => string) {
   const donationCount = data.total_donations.toLocaleString("en-IN");
   const periodLabel = data.period_label;
   const isLifetime = data.period === "lifetime";
@@ -172,41 +183,43 @@ function buildKpis(data: DonationSummaryData) {
 
   return [
     {
-      label: isLifetime ? "Lifetime Total" : "Total Raised",
+      label: isLifetime ? t("dashboard.kpi.lifetimeTotal") : t("dashboard.kpi.totalRaised"),
       value: formatInr(isLifetime ? data.lifetime_funds : data.total_funds),
-      sub: isLifetime ? "All time" : periodLabel,
+      sub: isLifetime ? t("dashboard.kpi.allTime") : periodLabel,
       delta: isLifetime ? noDelta : formatPercentChange(data.changes.total_funds),
       icon: HandCoins,
     },
     {
-      label: isLifetime ? "Total Donors" : "Active Donors",
+      label: isLifetime ? t("dashboard.kpi.totalDonors") : t("dashboard.kpi.activeDonors"),
       value: isLifetime
         ? (data.registered_donors ?? 0).toLocaleString("en-IN")
         : data.total_donors.toLocaleString("en-IN"),
       sub: isLifetime
-        ? `${donationCount} donation${data.total_donations === 1 ? "" : "s"} · All time`
-        : `${donationCount} donation${data.total_donations === 1 ? "" : "s"} · ${periodLabel}`,
+        ? t("dashboard.kpi.donationsCount", { count: data.total_donations }) +
+          " · " +
+          t("dashboard.kpi.allTime")
+        : t("dashboard.kpi.donationsCount", { count: data.total_donations }) + " · " + periodLabel,
       delta: isLifetime ? noDelta : formatPercentChange(data.changes.total_donors),
       icon: Users,
     },
     {
-      label: "Avg Donation",
+      label: t("dashboard.kpi.avgDonation"),
       value: formatInr(data.avg_donation),
-      sub: isLifetime ? "All time" : periodLabel,
+      sub: isLifetime ? t("dashboard.kpi.allTime") : periodLabel,
       delta: isLifetime ? noDelta : formatPercentChange(data.changes.avg_donation),
       icon: TrendingUp,
     },
     {
-      label: "Max Donation",
+      label: t("dashboard.kpi.maxDonation"),
       value: formatInr(data.max_donation),
-      sub: isLifetime ? "All time" : periodLabel,
+      sub: isLifetime ? t("dashboard.kpi.allTime") : periodLabel,
       delta: isLifetime ? noDelta : formatPercentChange(data.changes.max_donation),
       icon: BarChart3,
     },
     {
-      label: "Min Donation",
+      label: t("dashboard.kpi.minDonation"),
       value: formatInr(data.min_donation),
-      sub: isLifetime ? "All time" : periodLabel,
+      sub: isLifetime ? t("dashboard.kpi.allTime") : periodLabel,
       delta: isLifetime ? noDelta : formatPercentChange(data.changes.min_donation),
       icon: TrendingDown,
     },
@@ -214,11 +227,14 @@ function buildKpis(data: DonationSummaryData) {
 }
 
 function DashboardHome() {
+  const { t } = useTranslation();
   const [period, setPeriod] = useState<DashboardPeriod>("month");
   const [mounted, setMounted] = useState(false);
   const user = getAuthUser();
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data: summaryRes, isLoading: loading } = useQuery({
     queryKey: ["donationSummary", period],
@@ -234,7 +250,7 @@ function DashboardHome() {
   const topDonors = tablesRes?.[0]?.donors ?? [];
   const recentDonations = tablesRes?.[1]?.donations ?? [];
 
-  const kpis = useMemo(() => (summary ? buildKpis(summary) : []), [summary]);
+  const kpis = useMemo(() => (summary ? buildKpis(summary, t) : []), [summary, t]);
   const paymentModeData = useMemo(
     () => (summary?.payment_modes ? buildPaymentModeChartData(summary.payment_modes) : []),
     [summary],
@@ -254,14 +270,17 @@ function DashboardHome() {
       {/* Greeting */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Jai Shree Krishna 🙏</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.greeting")}</p>
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">
-            Welcome back, {firstName} ji
+            {t("dashboard.welcomeBack", { name: firstName })}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Here&apos;s what&apos;s happening at your temple today — {formatTodayDate()}
+            {t("dashboard.todayHappening", { date: mounted ? formatFullDate(new Date()) : "" })}
             {summary?.period_label ? (
-              <span className="text-foreground/70"> · Showing: {summary.period_label}</span>
+              <span className="text-foreground/70">
+                {" "}
+                · {t("dashboard.showing", { label: summary.period_label })}
+              </span>
             ) : null}
           </p>
         </div>
@@ -275,7 +294,7 @@ function DashboardHome() {
                 className="rounded-full"
                 onClick={() => setPeriod(p.value)}
               >
-                {p.label}
+                {t(p.labelKey)}
               </Button>
             ))}
           </div>
@@ -288,7 +307,7 @@ function DashboardHome() {
           ? Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="rounded-2xl border-border shadow-soft">
                 <CardContent className="p-5">
-                  <p className="text-sm text-muted-foreground">Loading…</p>
+                  <p className="text-sm text-muted-foreground">{t("dashboard.loading")}</p>
                 </CardContent>
               </Card>
             ))
@@ -311,7 +330,9 @@ function DashboardHome() {
                       {k.delta.text}
                     </span>
                   </div>
-                  <p className="mt-4 text-xs uppercase tracking-wide text-muted-foreground">{k.label}</p>
+                  <p className="mt-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    {k.label}
+                  </p>
                   <p className="mt-1 font-display text-2xl font-semibold">{k.value}</p>
                   {"sub" in k && k.sub ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{k.sub}</p>
@@ -326,9 +347,11 @@ function DashboardHome() {
         <Card className="rounded-2xl border-border shadow-soft lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="font-display text-lg">Donations Overview</CardTitle>
+              <CardTitle className="font-display text-lg">
+                {t("dashboard.donationsOverview")}
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {summary?.chart_subtitle ?? "Loading chart…"}
+                {summary?.chart_subtitle ?? t("dashboard.chartLoading")}
               </p>
             </div>
             {summary?.chart_badge ? (
@@ -339,7 +362,9 @@ function DashboardHome() {
           </CardHeader>
           <CardContent className="h-[300px]">
             {loading ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {t("dashboard.loading")}
+              </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
@@ -373,7 +398,12 @@ function DashboardHome() {
                       );
                     }}
                   />
-                  <YAxis yAxisId="amount" stroke="hsl(38 70% 42%)" fontSize={12} tickFormatter={(v) => `${v}k`} />
+                  <YAxis
+                    yAxisId="amount"
+                    stroke="hsl(38 70% 42%)"
+                    fontSize={12}
+                    tickFormatter={(v) => `${v}k`}
+                  />
                   <YAxis
                     yAxisId="avg"
                     orientation="right"
@@ -388,7 +418,7 @@ function DashboardHome() {
                   <Bar
                     yAxisId="amount"
                     dataKey="donations_k"
-                    name="Donations (₹ thousands)"
+                    name={t("dashboard.charts.donationsAmount")}
                     radius={[6, 6, 0, 0]}
                     barSize={chartLabelCount > 10 ? 20 : chartLabelCount > 6 ? 28 : 36}
                   >
@@ -405,12 +435,18 @@ function DashboardHome() {
                     yAxisId="avg"
                     type="monotone"
                     dataKey="avg_donation_k"
-                    name="Avg donation (₹ thousands)"
+                    name={t("dashboard.charts.avgDonation")}
                     stroke={CHART_LINE_DEFAULT}
                     strokeWidth={2.5}
                     dot={(props) => {
-                      const { cx, cy, payload, key } = props as { cx?: number; cy?: number; payload?: ChartOverviewPoint; key?: string };
-                      if (cx == null || cy == null) return <circle key={key} cx={0} cy={0} r={0} fill="none" />;
+                      const { cx, cy, payload, key } = props as {
+                        cx?: number;
+                        cy?: number;
+                        payload?: ChartOverviewPoint;
+                        key?: string;
+                      };
+                      if (cx == null || cy == null)
+                        return <circle key={key} cx={0} cy={0} r={0} fill="none" />;
                       const highlighted = payload?.is_highlight;
                       return (
                         <circle
@@ -433,18 +469,20 @@ function DashboardHome() {
 
         <Card className="rounded-2xl border-border shadow-soft">
           <CardHeader>
-            <CardTitle className="font-display text-lg">Payment Mode</CardTitle>
+            <CardTitle className="font-display text-lg">{t("dashboard.paymentMode")}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              How donors are paying
+              {t("dashboard.paymentModeSubtitle")}
               {summary?.period_label ? ` · ${summary.period_label}` : ""}
             </p>
           </CardHeader>
           <CardContent className="h-[300px]">
             {loading ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading…</div>
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {t("dashboard.loading")}
+              </div>
             ) : paymentModeData.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                No donations in this period
+                {t("dashboard.noDonationsPeriod")}
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -466,12 +504,10 @@ function DashboardHome() {
                   </Pie>
                   <Tooltip
                     formatter={(value, _name, item) => {
-                      const p = item.payload as { name: string; share: number; amount: number } | undefined;
+                      const p = item.payload as
+                        { name: string; share: number; amount: number } | undefined;
                       if (!p) return value;
-                      return [
-                        `${value} donations (${p.share}%) · ${formatInr(p.amount)}`,
-                        p.name,
-                      ];
+                      return [`${value} donations (${p.share}%) · ${formatInr(p.amount)}`, p.name];
                     }}
                     contentStyle={{
                       borderRadius: 12,
@@ -496,19 +532,28 @@ function DashboardHome() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl border-border shadow-soft lg:col-span-2">
           <CardHeader>
-            <CardTitle className="font-display text-lg">Quick Actions</CardTitle>
-            <p className="text-sm text-muted-foreground">Common tasks · one tap away</p>
+            <CardTitle className="font-display text-lg">{t("dashboard.quickActions")}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t("dashboard.quickActionsSubtitle")}</p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
-              { label: "Upload Documents", icon: Upload, to: "/dashboard/upload" },
-              { label: "Add Donation", icon: Plus, to: "/dashboard/donations" },
-              { label: "Add Expense", icon: Receipt, to: "/dashboard/expenses" },
-              { label: "Add Donor", icon: UserPlus, to: "/dashboard/donors" },
-              { label: "Generate Report", icon: FileBarChart, to: "/dashboard/reports" },
-              { label: "View Donors", icon: ListChecks, to: "/dashboard/donors" },
+              { label: t("dashboard.uploadDocs"), icon: Upload, to: "/dashboard/upload" },
+              { label: t("dashboard.addDonation"), icon: Plus, to: "/dashboard/donations" },
+              { label: t("dashboard.addExpense"), icon: Receipt, to: "/dashboard/expenses" },
+              { label: t("dashboard.addDonor"), icon: UserPlus, to: "/dashboard/donors" },
+              {
+                label: t("dashboard.generateReport"),
+                icon: FileBarChart,
+                to: "/dashboard/reports",
+              },
+              { label: t("dashboard.viewDonors"), icon: ListChecks, to: "/dashboard/donors" },
             ].map((a) => (
-              <Button key={a.label} asChild variant="outline" className="h-auto justify-start gap-3 rounded-xl border-border p-4 text-left">
+              <Button
+                key={a.label}
+                asChild
+                variant="outline"
+                className="h-auto justify-start gap-3 rounded-xl border-border p-4 text-left"
+              >
                 <Link to={a.to}>
                   <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-primary">
                     <a.icon className="h-4 w-4" />
@@ -524,27 +569,31 @@ function DashboardHome() {
           <CardHeader>
             <div className="flex items-center gap-2 text-primary">
               <Sparkles className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-wide">AI Upload Center</span>
+              <span className="text-xs font-semibold uppercase tracking-wide">
+                {t("dashboard.aiUploadCenter")}
+              </span>
             </div>
-            <CardTitle className="font-display text-lg">Let AI do the data entry</CardTitle>
+            <CardTitle className="font-display text-lg">{t("dashboard.aiUploadTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Upload handwritten registers, receipts, PDFs or bank statements. We&apos;ll extract every entry.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("dashboard.aiUploadDesc")}</p>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
                 <span>Donation Register · Jun.pdf</span>
-                <Badge className="rounded-full bg-success/15 text-success hover:bg-success/15">214 entries</Badge>
+                <Badge className="rounded-full bg-success/15 text-success hover:bg-success/15">
+                  214 entries
+                </Badge>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
                 <span>Bank Statement · May.xlsx</span>
-                <Badge variant="secondary" className="rounded-full">Processing…</Badge>
+                <Badge variant="secondary" className="rounded-full">
+                  {t("dashboard.loading")}
+                </Badge>
               </div>
             </div>
             <Button asChild className="w-full rounded-full">
               <Link to="/dashboard/upload">
-                Upload documents <ArrowRight className="ml-1 h-4 w-4" />
+                {t("dashboard.uploadDocuments")} <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>
@@ -556,25 +605,34 @@ function DashboardHome() {
         <Card className="rounded-2xl border-border shadow-soft">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="font-display text-lg">Top Donors</CardTitle>
-              <p className="text-sm text-muted-foreground">Lifetime · all-time totals for your trust</p>
+              <CardTitle className="font-display text-lg">{t("dashboard.topDonors")}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t("dashboard.topDonorsSubtitle")}</p>
             </div>
-            <Link to="/dashboard/donors" className="text-xs font-medium text-primary hover:underline">
-              See all
+            <Link
+              to="/dashboard/donors"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              {t("dashboard.seeAll")}
             </Link>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
             {tablesLoading ? (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">Loading…</p>
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                {t("dashboard.loading")}
+              </p>
             ) : topDonors.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No donors yet</p>
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                {t("dashboard.noDonors")}
+              </p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-5 py-3 font-medium">Donor</th>
-                    <th className="px-5 py-3 font-medium">Donations</th>
-                    <th className="px-5 py-3 text-right font-medium">Total</th>
+                    <th className="px-5 py-3 font-medium">{t("dashboard.table.donor")}</th>
+                    <th className="px-5 py-3 font-medium">{t("dashboard.table.donations")}</th>
+                    <th className="px-5 py-3 text-right font-medium">
+                      {t("dashboard.table.total")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -596,35 +654,52 @@ function DashboardHome() {
         <Card className="rounded-2xl border-border shadow-soft">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="font-display text-lg">Recent Donations</CardTitle>
-              <p className="text-sm text-muted-foreground">Latest entries in your ledger</p>
+              <CardTitle className="font-display text-lg">
+                {t("dashboard.recentDonations")}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {t("dashboard.recentDonationsSubtitle")}
+              </p>
             </div>
-            <Link to="/dashboard/donations" className="text-xs font-medium text-primary hover:underline">
-              See all
+            <Link
+              to="/dashboard/donations"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              {t("dashboard.seeAll")}
             </Link>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
             {tablesLoading ? (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">Loading…</p>
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                {t("dashboard.loading")}
+              </p>
             ) : recentDonations.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No donations yet</p>
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                {t("dashboard.noDonations")}
+              </p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-5 py-3 font-medium">Donor</th>
-                    <th className="px-5 py-3 font-medium">Date</th>
-                    <th className="px-5 py-3 font-medium">Mode</th>
-                    <th className="px-5 py-3 text-right font-medium">Amount</th>
+                    <th className="px-5 py-3 font-medium">{t("dashboard.table.donor")}</th>
+                    <th className="px-5 py-3 font-medium">{t("dashboard.table.date")}</th>
+                    <th className="px-5 py-3 font-medium">{t("dashboard.table.mode")}</th>
+                    <th className="px-5 py-3 text-right font-medium">
+                      {t("dashboard.table.amount")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentDonations.map((r) => (
                     <tr key={r.id} className="border-b border-border last:border-0">
                       <td className="px-5 py-3 font-medium">{r.donor_name}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{formatDonationDate(r.date)}</td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {formatDonationDate(r.date)}
+                      </td>
                       <td className="px-5 py-3">
-                        <Badge variant="secondary" className="rounded-full">{r.payment_mode}</Badge>
+                        <Badge variant="secondary" className="rounded-full">
+                          {r.payment_mode}
+                        </Badge>
                       </td>
                       <td className="px-5 py-3 text-right font-semibold">{formatInr(r.amount)}</td>
                     </tr>

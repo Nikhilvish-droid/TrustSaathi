@@ -8,27 +8,28 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import appCss from "../styles.css?url";
+import "../i18n";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { redirectOAuthHashToCallback } from "../lib/oauth-redirect";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="font-display text-7xl font-bold text-primary">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
+        <h1 className="font-display text-7xl font-bold text-primary">{t("notFound.title")}</h1>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">{t("notFound.heading")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("notFound.description")}</p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Go home
+            {t("notFound.goHome")}
           </Link>
         </div>
       </div>
@@ -39,6 +40,7 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const { t } = useTranslation();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
@@ -46,12 +48,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">{t("error.title")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t("error.description")}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -60,13 +58,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            {t("error.tryAgain")}
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-full border border-input bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Go home
+            {t("error.goHome")}
           </a>
         </div>
       </div>
@@ -86,9 +84,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "TrustSaathi is an AI-powered finance and compliance platform for Indian temples, trusts and NGOs. Manage donations, accounts, audits and reports — all in one place.",
       },
       { name: "author", content: "TrustSaathi" },
-      { name: "keywords", content: "Temple Management Software India, Trust Accounting Software, NGO Donation Management Software, Temple Finance Management System, AI Accounting for Trusts" },
+      {
+        name: "keywords",
+        content:
+          "Temple Management Software India, Trust Accounting Software, NGO Donation Management Software, Temple Finance Management System, AI Accounting for Trusts",
+      },
       { property: "og:title", content: "TrustSaathi — Temple, Trust & NGO Finance Software" },
-      { property: "og:description", content: "AI-powered accounting and donation management for temples, trusts and NGOs across India." },
+      {
+        property: "og:description",
+        content:
+          "AI-powered accounting and donation management for temples, trusts and NGOs across India.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "TrustSaathi" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -108,6 +114,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
       },
+      { rel: "alternate", hrefLang: "en", href: "/?lang=en" },
+      { rel: "alternate", hrefLang: "hi", href: "/?lang=hi" },
+      { rel: "alternate", hrefLang: "gu", href: "/?lang=gu" },
+      { rel: "alternate", hrefLang: "mr", href: "/?lang=mr" },
+      { rel: "alternate", hrefLang: "x-default", href: "/" },
     ],
     scripts: [
       {
@@ -132,8 +143,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const { i18n } = useTranslation();
+
+  useEffect(() => {
+    const saved = localStorage.getItem("trustsaathi-lang");
+    if (saved) {
+      document.documentElement.lang = saved;
+    }
+    return () => {};
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = i18n.language?.slice(0, 2) ?? "en";
+  }, [i18n.language]);
+
   return (
-    <html lang="en">
+    <html lang={i18n.language?.slice(0, 2) ?? "en"}>
       <head>
         <HeadContent />
       </head>

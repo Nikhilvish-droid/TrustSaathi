@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   CheckCircle2,
@@ -46,13 +47,6 @@ type FlowStep = "idle" | "extracting" | "review" | "submitting" | "success";
 
 const ACCEPTED = ".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv";
 
-const FIELD_LABELS: Record<CriticalField, string> = {
-  donor_name: "Donor Name",
-  amount: "Amount",
-  date: "Date",
-  payment_mode: "Payment Mode",
-};
-
 type FlowState = {
   step: FlowStep;
   fileName: string | null;
@@ -82,16 +76,30 @@ function createInitialState(): FlowState {
 }
 
 export function DocumentUploadFlow() {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const restoredDraftRef = useRef(false);
-  const [{ step, fileName, extractResult, rows, submitResult }, setFlowState] = useState(createInitialState);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(() => loadUploadDraft()?.savedAt ?? null);
+  const [{ step, fileName, extractResult, rows, submitResult }, setFlowState] =
+    useState(createInitialState);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(
+    () => loadUploadDraft()?.savedAt ?? null,
+  );
+
+  const FIELD_LABELS: Record<CriticalField, string> = {
+    donor_name: t("uploadFlow.fieldLabels.donorName"),
+    amount: t("uploadFlow.fieldLabels.amount"),
+    date: t("uploadFlow.fieldLabels.date"),
+    payment_mode: t("uploadFlow.fieldLabels.paymentMode"),
+  };
 
   const setStep = (next: FlowStep) => setFlowState((prev) => ({ ...prev, step: next }));
-  const setFileName = (next: string | null) => setFlowState((prev) => ({ ...prev, fileName: next }));
+  const setFileName = (next: string | null) =>
+    setFlowState((prev) => ({ ...prev, fileName: next }));
   const setExtractResult = (next: ExtractResponse | null) =>
     setFlowState((prev) => ({ ...prev, extractResult: next }));
-  const setRows = (next: ReviewDonationRow[] | ((prev: ReviewDonationRow[]) => ReviewDonationRow[])) =>
+  const setRows = (
+    next: ReviewDonationRow[] | ((prev: ReviewDonationRow[]) => ReviewDonationRow[]),
+  ) =>
     setFlowState((prev) => ({
       ...prev,
       rows: typeof next === "function" ? next(prev.rows) : next,
@@ -104,7 +112,7 @@ export function DocumentUploadFlow() {
     const draft = loadUploadDraft();
     if (draft) {
       restoredDraftRef.current = true;
-      toast.info(`Resumed your review of "${draft.fileName}". Your edits are saved while you navigate.`);
+      toast.info(t("uploadFlow.toast.resumed", { fileName: draft.fileName }));
     }
   }, []);
 
@@ -130,12 +138,12 @@ export function DocumentUploadFlow() {
       setRows(mapExtractToReviewRows(result));
       setStep("review");
       if (!result.ai_analysis.is_complete) {
-        toast.warning("Some fields need your review before submitting.");
+        toast.warning(t("uploadFlow.toast.needsReview"));
       } else {
-        toast.success(`Extracted ${result.extracted_data.length} records.`);
+        toast.success(t("uploadFlow.toast.extracted", { count: result.extracted_data.length }));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Extraction failed.");
+      toast.error(err instanceof Error ? err.message : t("uploadFlow.toast.extractionFailed"));
       setStep("idle");
       setFileName(null);
     }
@@ -163,7 +171,7 @@ export function DocumentUploadFlow() {
   const deleteRow = (id: string) => {
     setRows((prev) => {
       if (prev.length <= 1) {
-        toast.error("At least one row is required. Use Cancel to discard the upload.");
+        toast.error(t("uploadFlow.toast.minOneRow"));
         return prev;
       }
       return prev.filter((row) => row.id !== id);
@@ -191,7 +199,7 @@ export function DocumentUploadFlow() {
       setDraftSavedAt(null);
       toast.success(res.message);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed.");
+      toast.error(err instanceof Error ? err.message : t("uploadFlow.toast.uploadFailed"));
       setStep("review");
     }
   };
@@ -220,12 +228,14 @@ export function DocumentUploadFlow() {
             </span>
             <div>
               <h2 className="font-display text-2xl font-semibold">
-                {step === "extracting" ? "AI is reading your document…" : "Drop files here, or click to upload"}
+                {step === "extracting"
+                  ? t("uploadFlow.extractingTitle")
+                  : t("uploadFlow.idleTitle")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {step === "extracting"
-                  ? `Processing ${fileName ?? "file"} — this may take a moment.`
-                  : "PDF, JPG, PNG, XLSX up to 50MB each."}
+                  ? t("uploadFlow.processing", { fileName: fileName ?? "file" })
+                  : t("uploadFlow.fileHint")}
               </p>
             </div>
             <input
@@ -240,14 +250,14 @@ export function DocumentUploadFlow() {
               disabled={step === "extracting"}
               onClick={() => inputRef.current?.click()}
             >
-              <Upload className="mr-1.5 h-4 w-4" /> Choose file
+              <Upload className="mr-1.5 h-4 w-4" /> {t("uploadFlow.chooseFile")}
             </Button>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
               {[
-                { icon: FileText, label: "Registers" },
-                { icon: ImageIcon, label: "Receipts" },
-                { icon: FileText, label: "PDFs" },
-                { icon: FileSpreadsheet, label: "Excel / CSV" },
+                { icon: FileText, label: t("uploadFlow.registers") },
+                { icon: ImageIcon, label: t("uploadFlow.receipts") },
+                { icon: FileText, label: t("uploadFlow.pdfs") },
+                { icon: FileSpreadsheet, label: t("uploadFlow.excelCsv") },
               ].map((a) => (
                 <Badge key={a.label} variant="secondary" className="rounded-full">
                   <a.icon className="mr-1 h-3 w-3" /> {a.label}
@@ -264,7 +274,7 @@ export function DocumentUploadFlow() {
             <div>
               <CardTitle className="font-display text-lg flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Review extracted data
+                {t("uploadFlow.reviewTitle")}
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
                 {fileName} · {extractResult.document_type.replace(/_/g, " ")} · {rows.length} rows
@@ -278,15 +288,15 @@ export function DocumentUploadFlow() {
               {!extractResult.ai_analysis.is_complete && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-amber-700">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  Missing or low-confidence fields are highlighted.
+                  {t("uploadFlow.missingFields")}
                   {missingFields.length > 0 && (
-                    <span>Flagged: {missingFields.join(", ")}</span>
+                    <span>{t("uploadFlow.flagged", { fields: missingFields.join(", ") })}</span>
                   )}
                 </div>
               )}
             </div>
             <Button variant="outline" size="sm" className="rounded-full shrink-0" onClick={reset}>
-              Upload another
+              {t("uploadFlow.uploadAnother")}
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -294,14 +304,16 @@ export function DocumentUploadFlow() {
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2.5 font-medium w-10">#</th>
-                    <th className="px-2 py-2.5 font-medium w-16 text-center">Delete</th>
+                    <th className="px-3 py-2.5 font-medium w-10">{t("uploadFlow.tableHash")}</th>
+                    <th className="px-2 py-2.5 font-medium w-16 text-center">
+                      {t("uploadFlow.tableDelete")}
+                    </th>
                     {CRITICAL_FIELD_KEYS.map((f) => (
                       <th key={f} className="px-3 py-2.5 font-medium">
                         {FIELD_LABELS[f]}
                       </th>
                     ))}
-                    <th className="px-3 py-2.5 font-medium">Confidence</th>
+                    <th className="px-3 py-2.5 font-medium">{t("uploadFlow.tableConfidence")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -313,6 +325,7 @@ export function DocumentUploadFlow() {
                       highlight={rowNeedsAttention(row, missingFields)}
                       onChange={updateRow}
                       onDelete={deleteRow}
+                      fieldLabels={FIELD_LABELS}
                     />
                   ))}
                 </tbody>
@@ -320,19 +333,29 @@ export function DocumentUploadFlow() {
             </div>
 
             <div className="flex flex-wrap gap-3 border-t border-border pt-4">
-              <Button className="rounded-full" onClick={() => void submit(false)} disabled={rows.length === 0}>
-                Confirm & Submit
+              <Button
+                className="rounded-full"
+                onClick={() => void submit(false)}
+                disabled={rows.length === 0}
+              >
+                {t("uploadFlow.confirmSubmit")}
               </Button>
-              <Button variant="outline" className="rounded-full" onClick={() => void submit(true)} disabled={rows.length === 0}>
-                Save as Draft / Do Later
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => void submit(true)}
+                disabled={rows.length === 0}
+              >
+                {t("uploadFlow.saveDraft")}
               </Button>
               <Button variant="outline" className="rounded-full" onClick={reset}>
-                Cancel
+                {t("uploadFlow.cancel")}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Confirm validates all fields. Draft saves incomplete rows with{" "}
-              <code className="rounded bg-muted px-1">manual_review_required</code> for later sorting.
+              {t("uploadFlow.draftExplanation")}{" "}
+              <code className="rounded bg-muted px-1">manual_review_required</code>{" "}
+              {t("uploadFlow.draftExplanationEnd")}
             </p>
           </CardContent>
         </Card>
@@ -342,7 +365,7 @@ export function DocumentUploadFlow() {
         <Card className="rounded-2xl border-border shadow-soft">
           <CardContent className="flex items-center justify-center gap-3 py-16 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Saving to your trust ledger…
+            {t("uploadFlow.savingLedger")}
           </CardContent>
         </Card>
       )}
@@ -353,23 +376,28 @@ export function DocumentUploadFlow() {
             <CheckCircle2 className="h-12 w-12 text-success" />
             <div>
               <h2 className="font-display text-xl font-semibold">
-                {submitResult.draft ? "Draft saved" : "Records submitted"}
+                {submitResult.draft ? t("uploadFlow.draftSaved") : t("uploadFlow.recordsSubmitted")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {submitResult.count} donation{submitResult.count === 1 ? "" : "s"} saved
+                {t("uploadFlow.savedCount", { count: submitResult.count })}
                 {submitResult.draft
-                  ? " with missing values. Open Donor Audit to complete them."
-                  : " to your database"}.
+                  ? ` ${t("uploadFlow.draftNote")}`
+                  : ` ${t("uploadFlow.submitNote")}`}
+                .
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {submitResult.draft ? (
                 <Button asChild className="rounded-full">
-                  <Link to="/dashboard/compliance">Open Donor Audit</Link>
+                  <Link to="/dashboard/compliance">{t("uploadFlow.openAudit")}</Link>
                 </Button>
               ) : null}
-              <Button variant={submitResult.draft ? "outline" : "default"} className="rounded-full" onClick={reset}>
-                Upload another document
+              <Button
+                variant={submitResult.draft ? "outline" : "default"}
+                className="rounded-full"
+                onClick={reset}
+              >
+                {t("uploadFlow.uploadAnotherDoc")}
               </Button>
             </div>
           </CardContent>
@@ -387,12 +415,14 @@ function ReviewRow({
   highlight,
   onChange,
   onDelete,
+  fieldLabels,
 }: {
   index: number;
   row: ReviewDonationRow;
   highlight: Partial<Record<CriticalField, boolean>>;
   onChange: (id: string, field: CriticalField, value: string) => void;
   onDelete: (id: string) => void;
+  fieldLabels: Record<CriticalField, string>;
 }) {
   const highlightClass = "border-amber-400 bg-amber-50 ring-1 ring-amber-300/60";
 
@@ -417,7 +447,7 @@ function ReviewRow({
           value={row.donor_name ?? ""}
           onChange={(e) => onChange(row.id, "donor_name", e.target.value)}
           className={cn("h-8 rounded-lg text-sm", highlight.donor_name && highlightClass)}
-          placeholder="Donor name"
+          placeholder={fieldLabels.donor_name}
         />
       </td>
       <td className="px-3 py-2">
@@ -427,7 +457,7 @@ function ReviewRow({
           value={row.amount ?? ""}
           onChange={(e) => onChange(row.id, "amount", e.target.value)}
           className={cn("h-8 rounded-lg text-sm", highlight.amount && highlightClass)}
-          placeholder="Amount"
+          placeholder={fieldLabels.amount}
         />
       </td>
       <td className="px-3 py-2">
@@ -443,8 +473,10 @@ function ReviewRow({
           value={row.payment_mode ?? ""}
           onValueChange={(v) => onChange(row.id, "payment_mode", v)}
         >
-          <SelectTrigger className={cn("h-8 rounded-lg text-sm", highlight.payment_mode && highlightClass)}>
-            <SelectValue placeholder="Select mode" />
+          <SelectTrigger
+            className={cn("h-8 rounded-lg text-sm", highlight.payment_mode && highlightClass)}
+          >
+            <SelectValue placeholder={fieldLabels.payment_mode} />
           </SelectTrigger>
           <SelectContent>
             {PAYMENT_MODES.map((m) => (
@@ -463,9 +495,7 @@ function ReviewRow({
             row._low_confidence && "bg-amber-100 text-amber-800",
           )}
         >
-          {row.confidence_score != null
-            ? `${Math.round(row.confidence_score * 100)}%`
-            : "—"}
+          {row.confidence_score != null ? `${Math.round(row.confidence_score * 100)}%` : "—"}
         </Badge>
       </td>
     </tr>

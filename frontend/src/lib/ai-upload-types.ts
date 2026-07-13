@@ -19,7 +19,7 @@ export type AiAnalysis = {
 };
 
 export type ExtractResponse = {
-  status: 'success' | string;
+  status: "success" | string;
   document_type: string;
   organization_id?: string;
   ai_analysis: AiAnalysis;
@@ -30,7 +30,7 @@ export type ReviewDonationRow = ExtractedDonationRow & {
   id: string;
 };
 
-export type RecordStatus = 'completed' | 'draft';
+export type RecordStatus = "completed" | "draft";
 
 export type UploadDonationRow = {
   donor_name: string | null;
@@ -49,7 +49,7 @@ export type UploadPayload = {
   record_status: RecordStatus;
   is_frontend_corrected: true;
   manual_review_required: boolean;
-  status: 'success';
+  status: "success";
   data: UploadDonationRow[];
 };
 
@@ -61,15 +61,15 @@ export type UploadResponse = {
 };
 
 export type ActionRequiredResponse = {
-  status: 'action_required';
+  status: "action_required";
   message: string;
   missing_fields: string[];
   raw_data: ExtractedDonationRow[];
 };
 
-export const CRITICAL_FIELDS = ['donor_name', 'amount', 'date', 'payment_mode'] as const;
+export const CRITICAL_FIELDS = ["donor_name", "amount", "date", "payment_mode"] as const;
 export type CriticalField = (typeof CRITICAL_FIELDS)[number];
 
 export const LOW_CONFIDENCE_THRESHOLD = 0.85;
 
-export const PAYMENT_MODES = ['UPI', 'Cash', 'Bank Transfer', 'Cheque', 'Card', 'Unknown'] as const;
+export const PAYMENT_MODES = ["UPI", "Cash", "Bank Transfer", "Cheque", "Card", "Unknown"] as const;

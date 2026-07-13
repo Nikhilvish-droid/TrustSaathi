@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Settings, LogOut, Pencil, X, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,9 @@ import { fetchProfile, updateProfile } from "@/lib/auth-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/settings")({
-  head: () => ({ meta: [{ title: "Settings — TrustSaathi" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Settings — TrustSaathi" }, { name: "robots", content: "noindex" }],
+  }),
   component: SettingsPage,
 });
 
@@ -35,6 +38,7 @@ function toForm(user: AuthUser): ProfileForm {
 }
 
 function SettingsPage() {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -79,7 +83,7 @@ function SettingsPage() {
     setError("");
 
     if (!form.user_name.trim() || !form.email.trim() || !form.organization_name.trim()) {
-      setError("Full name, email, and organization name are required.");
+      setError(t("settings.validation.required"));
       return;
     }
 
@@ -96,9 +100,9 @@ function SettingsPage() {
       const token = getAuthToken();
       if (token) setAuthSession(token, result.user);
       setEditing(false);
-      toast.success("Profile updated successfully.");
+      toast.success(t("settings.toast.updated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update profile.");
+      setError(err instanceof Error ? err.message : t("settings.toast.updateFailed"));
     } finally {
       setSaving(false);
     }
@@ -107,21 +111,28 @@ function SettingsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
-        title="Settings"
-        subtitle="Manage temple, trust and user information."
+        title={t("settings.pageTitle")}
+        subtitle={t("settings.pageSubtitle")}
         icon={Settings}
         action={
           !loading && !editing ? (
             <Button className="rounded-full" onClick={startEdit}>
-              <Pencil className="mr-1.5 h-4 w-4" /> Edit profile
+              <Pencil className="mr-1.5 h-4 w-4" /> {t("settings.editProfile")}
             </Button>
           ) : editing ? (
             <div className="flex gap-2">
-              <Button type="button" variant="outline" className="rounded-full" onClick={cancelEdit} disabled={saving}>
-                <X className="mr-1.5 h-4 w-4" /> Cancel
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                onClick={cancelEdit}
+                disabled={saving}
+              >
+                <X className="mr-1.5 h-4 w-4" /> {t("settings.cancel")}
               </Button>
               <Button type="submit" form="profile-form" className="rounded-full" disabled={saving}>
-                <Save className="mr-1.5 h-4 w-4" /> {saving ? "Saving…" : "Save changes"}
+                <Save className="mr-1.5 h-4 w-4" />{" "}
+                {saving ? t("settings.saving") : t("settings.saveChanges")}
               </Button>
             </div>
           ) : null
@@ -130,25 +141,42 @@ function SettingsPage() {
 
       <Card className="rounded-2xl border-border shadow-soft">
         <CardHeader>
-          <CardTitle className="font-display text-lg">Profile & Organization</CardTitle>
+          <CardTitle className="font-display text-lg">{t("settings.profileTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading your profile…</p>
+            <p className="text-sm text-muted-foreground">{t("settings.loadingProfile")}</p>
           ) : editing ? (
-            <form id="profile-form" onSubmit={(e) => void handleSave(e)} className="grid gap-4 sm:grid-cols-2">
+            <form
+              id="profile-form"
+              onSubmit={(e) => void handleSave(e)}
+              className="grid gap-4 sm:grid-cols-2"
+            >
               {error && (
                 <p className="sm:col-span-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   {error}
                 </p>
               )}
-              <Field label="Full name *">
-                <Input name="user_name" value={form.user_name} onChange={handleChange} className="rounded-xl" required />
+              <Field label={t("settings.fullName")}>
+                <Input
+                  name="user_name"
+                  value={form.user_name}
+                  onChange={handleChange}
+                  className="rounded-xl"
+                  required
+                />
               </Field>
-              <Field label="Email *">
-                <Input name="email" type="email" value={form.email} onChange={handleChange} className="rounded-xl" required />
+              <Field label={t("settings.email")}>
+                <Input
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className="rounded-xl"
+                  required
+                />
               </Field>
-              <Field label="Temple / Trust name *">
+              <Field label={t("settings.orgName")}>
                 <Input
                   name="organization_name"
                   value={form.organization_name}
@@ -157,33 +185,42 @@ function SettingsPage() {
                   required
                 />
               </Field>
-              <Field label="Registration number">
-                <Input name="reg_number" value={form.reg_number} onChange={handleChange} className="rounded-xl" />
+              <Field label={t("settings.regNumber")}>
+                <Input
+                  name="reg_number"
+                  value={form.reg_number}
+                  onChange={handleChange}
+                  className="rounded-xl"
+                />
               </Field>
-              <Field label="New password" full>
+              <Field label={t("settings.newPassword")} full>
                 <Input
                   name="password"
                   type="password"
                   value={form.password}
                   onChange={handleChange}
-                  placeholder="Leave blank to keep current password"
+                  placeholder={t("settings.passwordPlaceholder")}
                   className="rounded-xl"
                   minLength={8}
                 />
               </Field>
-              <Field label="Role" full>
+              <Field label={t("settings.role")} full>
                 <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm capitalize">
-                  {profile?.role ?? "admin"}
+                  {profile?.role ?? t("settings.admin")}
                 </p>
               </Field>
             </form>
           ) : (
             <dl className="grid gap-4 sm:grid-cols-2">
-              <InfoItem label="Full name" value={profile?.name ?? "—"} />
-              <InfoItem label="Email" value={profile?.email ?? "—"} />
-              <InfoItem label="Temple / Trust name" value={profile?.organization_name ?? "—"} />
-              <InfoItem label="Registration number" value={profile?.reg_number ?? "—"} />
-              <InfoItem label="Role" value={profile?.role ?? "admin"} className="capitalize" />
+              <InfoItem label={t("settings.fullName")} value={profile?.name ?? "—"} />
+              <InfoItem label={t("settings.email")} value={profile?.email ?? "—"} />
+              <InfoItem label={t("settings.orgName")} value={profile?.organization_name ?? "—"} />
+              <InfoItem label={t("settings.regNumber")} value={profile?.reg_number ?? "—"} />
+              <InfoItem
+                label={t("settings.role")}
+                value={profile?.role ?? t("settings.admin")}
+                className="capitalize"
+              />
             </dl>
           )}
         </CardContent>
@@ -192,11 +229,11 @@ function SettingsPage() {
       <Card className="rounded-2xl border-border shadow-soft">
         <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-medium">Sign out</p>
-            <p className="text-sm text-muted-foreground">End your session on this device.</p>
+            <p className="font-medium">{t("settings.signOutTitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("settings.signOutDesc")}</p>
           </div>
           <Button variant="outline" className="rounded-full" onClick={logout}>
-            <LogOut className="mr-1.5 h-4 w-4" /> Sign out
+            <LogOut className="mr-1.5 h-4 w-4" /> {t("settings.signOutTitle")}
           </Button>
         </CardContent>
       </Card>
@@ -221,7 +258,15 @@ function InfoItem({
   );
 }
 
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+function Field({
+  label,
+  children,
+  full,
+}: {
+  label: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
   return (
     <div className={full ? "sm:col-span-2 space-y-1.5" : "space-y-1.5"}>
       <Label className="text-sm font-medium">{label}</Label>

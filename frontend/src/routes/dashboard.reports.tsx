@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FileBarChart, Download, FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,9 @@ import {
 } from "@/lib/export/expense-export";
 
 export const Route = createFileRoute("/dashboard/reports")({
-  head: () => ({ meta: [{ title: "Reports — TrustSaathi" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Reports — TrustSaathi" }, { name: "robots", content: "noindex" }],
+  }),
   component: ReportsPage,
 });
 
@@ -38,14 +41,46 @@ type ReportCard = {
   exportable: boolean;
 };
 
-const reports: ReportCard[] = [
-  { id: "donation", title: "Donation Report", desc: "All donations with donor, mode and purpose.", exportable: true },
-  { id: "donor", title: "Donor Report", desc: "Lifetime donations and contact details.", exportable: true },
-  { id: "income", title: "Income Report", desc: "All income heads with categories.", exportable: true },
-  { id: "expense", title: "Expense Report", desc: "Category-wise expense breakdown.", exportable: true },
-  { id: "audit", title: "Audit Report", desc: "Audit-ready, with all required schedules.", exportable: false },
-  { id: "80g", title: "80G Receipts Bundle", desc: "Bulk download of 80G receipts.", exportable: false },
-];
+function getReports(t: (key: string) => string): ReportCard[] {
+  return [
+    {
+      id: "donation",
+      title: t("reports.donationReport"),
+      desc: t("reports.donationReportDesc"),
+      exportable: true,
+    },
+    {
+      id: "donor",
+      title: t("reports.donorReport"),
+      desc: t("reports.donorReportDesc"),
+      exportable: true,
+    },
+    {
+      id: "income",
+      title: t("reports.incomeReport"),
+      desc: t("reports.incomeReportDesc"),
+      exportable: true,
+    },
+    {
+      id: "expense",
+      title: t("reports.expenseReport"),
+      desc: t("reports.expenseReportDesc"),
+      exportable: true,
+    },
+    {
+      id: "audit",
+      title: t("reports.auditReport"),
+      desc: t("reports.auditReportDesc"),
+      exportable: false,
+    },
+    {
+      id: "80g",
+      title: t("reports.receiptsBundle"),
+      desc: t("reports.receiptsBundleDesc"),
+      exportable: false,
+    },
+  ];
+}
 
 async function runReportExport(id: string, format: ReportFormat) {
   switch (id) {
@@ -77,7 +112,9 @@ const FORMAT_LABELS: Record<ReportFormat, string> = {
 };
 
 function ReportsPage() {
+  const { t } = useTranslation();
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const reports = getReports(t);
 
   const handleExport = async (reportId: string, format: ReportFormat) => {
     const key = `${reportId}-${format}`;
@@ -93,9 +130,13 @@ function ReportsPage() {
             : reportId === "expense"
               ? `${count} expense entr${count === 1 ? "y" : "ies"}`
               : `${count} donation${count === 1 ? "" : "s"}`;
-      toast.success(`${FORMAT_LABELS[format]} downloaded · ${label}`);
+      toast.success(t("reports.toast.downloaded", { format: FORMAT_LABELS[format], label }));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to export ${FORMAT_LABELS[format]}.`);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("reports.toast.exportFailed", { format: FORMAT_LABELS[format] }),
+      );
     } finally {
       setLoadingKey(null);
     }
@@ -104,8 +145,8 @@ function ReportsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        title="Reports"
-        subtitle="Generate beautiful, audit-ready reports in PDF, Excel or CSV."
+        title={t("reports.pageTitle")}
+        subtitle={t("reports.pageSubtitle")}
         icon={FileBarChart}
       />
 
@@ -124,7 +165,8 @@ function ReportsPage() {
                 {(["pdf", "excel", "csv"] as const).map((format) => {
                   const key = `${r.id}-${format}`;
                   const busy = loadingKey === key;
-                  const Icon = format === "pdf" ? FileText : format === "excel" ? FileSpreadsheet : Download;
+                  const Icon =
+                    format === "pdf" ? FileText : format === "excel" ? FileSpreadsheet : Download;
 
                   return (
                     <Button

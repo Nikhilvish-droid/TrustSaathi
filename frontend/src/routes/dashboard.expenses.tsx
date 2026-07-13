@@ -25,7 +25,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/page-shell";
 import { formatDonationDate, formatInr } from "@/lib/donations-api";
 import {
@@ -38,7 +44,9 @@ import {
 } from "@/lib/income-expenses-api";
 
 export const Route = createFileRoute("/dashboard/expenses")({
-  head: () => ({ meta: [{ title: "Income & Expenses — TrustSaathi" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Income & Expenses — TrustSaathi" }, { name: "robots", content: "noindex" }],
+  }),
   component: ExpensesPage,
 });
 
@@ -145,7 +153,10 @@ function ExpensesPage() {
     queryFn: fetchIncomeExpenses,
   });
 
-  const allTransactions = useMemo(() => (res?.transactions ?? []).map(mapIncomeExpenseRecord), [res]);
+  const allTransactions = useMemo(
+    () => (res?.transactions ?? []).map(mapIncomeExpenseRecord),
+    [res],
+  );
 
   const filteredTransactions = useMemo(() => {
     return filterTransactions(allTransactions, timeFilter).sort(
@@ -295,9 +306,24 @@ function ExpensesPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         {[
-          { l: `Income (${periodLabel})`, v: formatInr(totalIncome), icon: TrendingUp, tone: "text-success" },
-          { l: `Expenses (${periodLabel})`, v: formatInr(totalExpenses), icon: TrendingDown, tone: "text-destructive" },
-          { l: `Net (${periodLabel})`, v: formatInr(net), icon: net >= 0 ? TrendingUp : TrendingDown, tone: "text-primary" },
+          {
+            l: `Income (${periodLabel})`,
+            v: formatInr(totalIncome),
+            icon: TrendingUp,
+            tone: "text-success",
+          },
+          {
+            l: `Expenses (${periodLabel})`,
+            v: formatInr(totalExpenses),
+            icon: TrendingDown,
+            tone: "text-destructive",
+          },
+          {
+            l: `Net (${periodLabel})`,
+            v: formatInr(net),
+            icon: net >= 0 ? TrendingUp : TrendingDown,
+            tone: "text-primary",
+          },
         ].map((s) => (
           <Card key={s.l} className="rounded-2xl border-border shadow-soft">
             <CardContent className="flex items-center justify-between p-5">
@@ -345,10 +371,14 @@ function ExpensesPage() {
                     <tr
                       key={r.id}
                       className={`border-b border-border last:border-0 ${
-                        r.type === "Income" ? "bg-success/5 hover:bg-success/10" : "bg-destructive/5 hover:bg-destructive/10"
+                        r.type === "Income"
+                          ? "bg-success/5 hover:bg-success/10"
+                          : "bg-destructive/5 hover:bg-destructive/10"
                       }`}
                     >
-                      <td className="px-5 py-3 text-muted-foreground">{formatDonationDate(r.date)}</td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {formatDonationDate(r.date)}
+                      </td>
                       <td className="px-5 py-3 font-medium">{r.category}</td>
                       <td className="px-5 py-3">
                         <Badge
@@ -494,13 +524,17 @@ function ExpensesPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete entry?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete the {deleteTarget?.type?.toLowerCase()} entry for{" "}
-              <strong>{deleteTarget?.category}</strong> ({deleteTarget ? formatInr(deleteTarget.amount) : ""}).
+              <strong>{deleteTarget?.category}</strong> (
+              {deleteTarget ? formatInr(deleteTarget.amount) : ""}).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

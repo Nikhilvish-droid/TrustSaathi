@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiJson } from "./api-client";
 import { buildUploadPayload, uploadReviewedData } from "./ai-upload-api";
 import type { ReviewDonationRow } from "./ai-upload-types";
@@ -94,7 +95,9 @@ export type RecentDonation = {
 };
 
 export function fetchTopDonors(limit = 5) {
-  return apiJson<{ message: string; donors: TopDonor[] }>(`/api/donations/top-donors?limit=${limit}`);
+  return apiJson<{ message: string; donors: TopDonor[] }>(
+    `/api/donations/top-donors?limit=${limit}`,
+  );
 }
 
 export function fetchRecentDonations(limit = 5) {
@@ -106,7 +109,9 @@ export function fetchRecentDonations(limit = 5) {
 export function formatDonationDate(dateStr: string): string {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
-  return new Intl.DateTimeFormat("en-IN", {
+  const locale =
+    i18n.language?.slice(0, 2) === "en" ? "en-IN" : (i18n.language?.slice(0, 2) ?? "en");
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -114,7 +119,9 @@ export function formatDonationDate(dateStr: string): string {
 }
 
 export function formatInr(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
+  const locale =
+    i18n.language?.slice(0, 2) === "en" ? "en-IN" : (i18n.language?.slice(0, 2) ?? "en");
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,

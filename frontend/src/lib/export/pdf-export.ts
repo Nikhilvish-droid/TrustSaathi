@@ -1,7 +1,12 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import brandLogoUrl from "../../assets/trustsaathi-logo.png";
-import type { ExportColumnDef, ExportPayload, ExportStatDef, ExportTemplate } from "./export-templates";
+import type {
+  ExportColumnDef,
+  ExportPayload,
+  ExportStatDef,
+  ExportTemplate,
+} from "./export-templates";
 
 const BRAND_NAME = "TrustSaathi";
 const BRAND_TAGLINE = "Temple & Trust OS";
@@ -232,9 +237,7 @@ export async function generatePdfFromTemplate(
   }
 
   const head = [template.columns.map((c) => c.header)];
-  const body = payload.rows.map((row) =>
-    template.columns.map((col) => formatCellValue(row, col)),
-  );
+  const body = payload.rows.map((row) => template.columns.map((col) => formatCellValue(row, col)));
 
   const tableWidth = pageWidth - margin * 2;
   const columnStyles = buildColumnStyles(template, tableWidth);

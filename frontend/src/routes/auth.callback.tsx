@@ -12,10 +12,7 @@ import {
 
 export const Route = createFileRoute("/auth/callback")({
   head: () => ({
-    meta: [
-      { title: "Signing in — TrustSaathi" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Signing in — TrustSaathi" }, { name: "robots", content: "noindex" }],
   }),
   component: AuthCallbackPage,
 });
@@ -38,8 +35,7 @@ function AuthCallbackPage() {
 
         const result = await loginWithGoogle(session.access_token);
 
-        const profileDone =
-          result.is_profile_complete === true || isProfileComplete(result.user);
+        const profileDone = result.is_profile_complete === true || isProfileComplete(result.user);
 
         if (profileDone && result.token) {
           setAuthSession(result.token, result.user);

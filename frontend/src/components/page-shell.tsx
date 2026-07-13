@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import { ArrowLeft, Construction } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function PageHeader({
 }
 
 export function ComingSoon({ title, note }: { title: string; note?: string }) {
+  const { t } = useTranslation();
   return (
     <Card className="rounded-2xl border-dashed border-border bg-card">
       <CardContent className="flex flex-col items-center gap-3 p-12 text-center">
@@ -42,11 +44,11 @@ export function ComingSoon({ title, note }: { title: string; note?: string }) {
         </span>
         <h2 className="font-display text-xl font-semibold">{title}</h2>
         <p className="max-w-md text-sm text-muted-foreground">
-          {note ?? "This area is part of the full TrustSaathi experience. Connect Lovable Cloud to enable saving, editing and exporting your data."}
+          {note ?? t("pageShell.comingSoonNote")}
         </p>
         <Button asChild variant="outline" className="mt-2 rounded-full">
           <Link to="/dashboard">
-            <ArrowLeft className="mr-1 h-4 w-4" /> Back to Dashboard
+            <ArrowLeft className="mr-1 h-4 w-4" /> {t("pageShell.backToDashboard")}
           </Link>
         </Button>
       </CardContent>

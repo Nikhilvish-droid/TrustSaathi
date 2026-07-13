@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   Users,
@@ -30,35 +31,36 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useUploadDraft } from "@/hooks/use-upload-draft";
 
-const main = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Donor Management", url: "/dashboard/donors", icon: Users },
-  { title: "Donations", url: "/dashboard/donations", icon: HandCoins },
-  { title: "Income & Expenses", url: "/dashboard/expenses", icon: Receipt },
-  { title: "Ledger & Accounting", url: "/dashboard/ledger", icon: BookOpen },
-  { title: "Assets & Inventory", url: "/dashboard/assets", icon: Boxes },
-  { title: "Cash & Vehicle", url: "/dashboard/cash", icon: Truck },
-];
-
-const ops = [
-  { title: "Donor Audit", url: "/dashboard/compliance", icon: ShieldCheck },
-  { title: "Reports", url: "/dashboard/reports", icon: FileBarChart },
-  { title: "Document Upload (AI)", url: "/dashboard/upload", icon: Upload },
-  { title: "Notifications", url: "/dashboard/notifications", icon: Bell },
-];
-
-const system = [
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
-  { title: "Help & Support", url: "/dashboard/help", icon: HelpCircle },
-];
-
 export function AppSidebar() {
+  const { t } = useTranslation();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const hasUploadDraftPending = useUploadDraft();
   const isActive = (url: string) =>
     url === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(url);
+
+  const main = [
+    { title: t("sidebar.dashboard"), url: "/dashboard", icon: LayoutDashboard },
+    { title: t("sidebar.donorManagement"), url: "/dashboard/donors", icon: Users },
+    { title: t("sidebar.donations"), url: "/dashboard/donations", icon: HandCoins },
+    { title: t("sidebar.incomeExpenses"), url: "/dashboard/expenses", icon: Receipt },
+    { title: t("sidebar.ledger"), url: "/dashboard/ledger", icon: BookOpen },
+    { title: t("sidebar.assets"), url: "/dashboard/assets", icon: Boxes },
+    { title: t("sidebar.cash"), url: "/dashboard/cash", icon: Truck },
+  ];
+
+  const ops = [
+    { title: t("sidebar.donorAudit"), url: "/dashboard/compliance", icon: ShieldCheck },
+    { title: t("sidebar.reports"), url: "/dashboard/reports", icon: FileBarChart },
+    { title: t("sidebar.documentUpload"), url: "/dashboard/upload", icon: Upload },
+    { title: t("sidebar.notifications"), url: "/dashboard/notifications", icon: Bell },
+  ];
+
+  const system = [
+    { title: t("sidebar.settings"), url: "/dashboard/settings", icon: Settings },
+    { title: t("sidebar.help"), url: "/dashboard/help", icon: HelpCircle },
+  ];
 
   const renderGroup = (label: string, items: typeof main) => (
     <SidebarGroup>
@@ -78,8 +80,11 @@ export function AppSidebar() {
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="truncate">{item.title}</span>
                     {item.url === "/dashboard/upload" && hasUploadDraftPending && !collapsed ? (
-                      <Badge variant="secondary" className="ml-auto shrink-0 rounded-full px-1.5 py-0 text-[10px]">
-                        Draft
+                      <Badge
+                        variant="secondary"
+                        className="ml-auto shrink-0 rounded-full px-1.5 py-0 text-[10px]"
+                      >
+                        {t("sidebar.draft")}
                       </Badge>
                     ) : null}
                   </span>
@@ -102,15 +107,17 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate font-display text-base font-semibold">TrustSaathi</p>
-              <p className="truncate text-[11px] text-muted-foreground">Temple & Trust OS</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {t("sidebar.brandSubtitle")}
+              </p>
             </div>
           )}
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {renderGroup("Main", main)}
-        {renderGroup("Operations", ops)}
-        {renderGroup("System", system)}
+        {renderGroup(t("sidebar.main"), main)}
+        {renderGroup(t("sidebar.operations"), ops)}
+        {renderGroup(t("sidebar.system"), system)}
       </SidebarContent>
     </Sidebar>
   );

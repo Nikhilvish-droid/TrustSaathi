@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -70,26 +71,21 @@ export const Route = createFileRoute("/dashboard/compliance")({
   component: CompliancePage,
 });
 
-const FILTERS: { label: string; value: DonorFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Repeat", value: "repeat" },
-  { label: "New", value: "new" },
-  { label: "Corporate", value: "corporate" },
-  { label: "Trust", value: "trust" },
-];
-
 const COMPLIANCE_FILTER_LABELS: Record<string, string> = {
   missing_phone: "Missing mobile number",
   missing_pan: "Missing PAN card",
   pending_review: "Pending review",
-  "draft_missing_donor_name": "Draft missing donor name",
-  "draft_missing_amount": "Draft missing amount",
-  "draft_missing_date": "Draft missing date",
-  "draft_missing_payment_mode": "Draft missing payment mode",
+  draft_missing_donor_name: "Draft missing donor name",
+  draft_missing_amount: "Draft missing amount",
+  draft_missing_date: "Draft missing date",
+  draft_missing_payment_mode: "Draft missing payment mode",
 };
 
-function complianceFilterLabel(key: ComplianceFilter): string {
-  return COMPLIANCE_FILTER_LABELS[key] ?? key.replace(/_/g, " ");
+function complianceFilterLabel(key: ComplianceFilter, t: (key: string) => string): string {
+  const translationKey = `compliance.complianceFilters.${key}`;
+  return t(translationKey) !== translationKey
+    ? t(translationKey)
+    : (COMPLIANCE_FILTER_LABELS[key] ?? key.replace(/_/g, " "));
 }
 
 const toneCls: Record<string, string> = {
@@ -110,6 +106,7 @@ function toDateInputValue(dateStr: string | null | undefined): string {
 }
 
 function CompliancePage() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<DonorFilter>("all");
@@ -132,6 +129,14 @@ function CompliancePage() {
 
   const queryClient = useQueryClient();
 
+  const FILTERS: { label: string; value: DonorFilter }[] = [
+    { label: t("donors.filters.all"), value: "all" },
+    { label: t("donors.filters.repeat"), value: "repeat" },
+    { label: t("donors.filters.new"), value: "new" },
+    { label: t("donors.filters.corporate"), value: "corporate" },
+    { label: t("donors.filters.trust"), value: "trust" },
+  ];
+
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ["complianceSummary"],
     queryFn: fetchComplianceSummary,
@@ -152,7 +157,11 @@ function CompliancePage() {
   const handleAlertAction = (alert: ComplianceAlert) => {
     if (alert.filter_key) {
       setComplianceFilter(alert.filter_key as ComplianceFilter);
-      toast.info(`Showing donors: ${complianceFilterLabel(alert.filter_key as ComplianceFilter)}`);
+      toast.info(
+        t("compliance.toast.showingDonors", {
+          filter: complianceFilterLabel(alert.filter_key as ComplianceFilter, t),
+        }),
+      );
     }
   };
 
@@ -183,7 +192,7 @@ function CompliancePage() {
           selectDonation(res.donations[0]);
         }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load donations.");
+        toast.error(err instanceof Error ? err.message : t("compliance.toast.loadDonationsFailed"));
         setEditDonor(null);
       } finally {
         setDonationsLoading(false);
@@ -193,22 +202,22 @@ function CompliancePage() {
 
   const handleSave = async () => {
     if (!editDonor || !editName.trim()) {
-      toast.error("Donor name is required.");
+      toast.error(t("compliance.toast.donorRequired"));
       return;
     }
 
     if (selectedDonationId) {
       const amountNum = Number(editAmount);
       if (!editDate.trim()) {
-        toast.error("Donation date is required.");
+        toast.error(t("compliance.toast.dateRequired"));
         return;
       }
       if (Number.isNaN(amountNum) || amountNum <= 0) {
-        toast.error("Enter a valid donation amount greater than zero.");
+        toast.error(t("compliance.toast.amountInvalid"));
         return;
       }
       if (!editPaymentMode.trim()) {
-        toast.error("Payment mode is required.");
+        toast.error(t("compliance.toast.paymentRequired"));
         return;
       }
     }
@@ -230,14 +239,14 @@ function CompliancePage() {
         });
       }
 
-      toast.success("Donor and donation updated.");
+      toast.success(t("compliance.toast.updated"));
       setEditDonor(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["complianceDonors"] }),
         queryClient.invalidateQueries({ queryKey: ["complianceSummary"] }),
       ]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update record.");
+      toast.error(err instanceof Error ? err.message : t("compliance.toast.updateFailed"));
     } finally {
       setSaving(false);
     }
@@ -248,38 +257,36 @@ function CompliancePage() {
     setDeleting(true);
     try {
       await deleteDonor(deleteTarget.id);
-      toast.success(`${deleteTarget.name} deleted.`);
+      toast.success(t("compliance.toast.deleted", { name: deleteTarget.name }));
       setDeleteTarget(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["complianceDonors"] }),
         queryClient.invalidateQueries({ queryKey: ["complianceSummary"] }),
       ]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete donor.");
+      toast.error(err instanceof Error ? err.message : t("compliance.toast.deleteFailed"));
     } finally {
       setDeleting(false);
     }
   };
 
   const score = summary?.score ?? 0;
-  const scoreMessage =
-    summary?.message ??
-    "You're in good shape! Fix issues below to reach 95+.";
+  const scoreMessage = summary?.message ?? t("compliance.goodShape");
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Donor Audit"
-        subtitle="Review completeness, fix missing mobile & PAN, and edit donor records."
+        title={t("compliance.pageTitle")}
+        subtitle={t("compliance.pageSubtitle")}
         icon={ShieldCheck}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl border-primary/30 bg-gradient-to-br from-accent via-card to-card shadow-soft lg:col-span-1">
           <CardHeader>
-            <CardTitle className="font-display text-lg">Audit Readiness Score</CardTitle>
+            <CardTitle className="font-display text-lg">{t("compliance.auditScore")}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {summaryLoading ? "Updating…" : "Updated just now"}
+              {summaryLoading ? t("compliance.updating") : t("compliance.updatedNow")}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -291,14 +298,18 @@ function CompliancePage() {
               <>
                 <div className="flex items-end gap-2">
                   <span className="font-display text-6xl font-semibold text-primary">{score}</span>
-                  <span className="mb-2 text-sm text-muted-foreground">/ 100</span>
+                  <span className="mb-2 text-sm text-muted-foreground">
+                    {t("compliance.outOf100")}
+                  </span>
                 </div>
                 <Progress value={score} className="h-2" />
                 <p className="text-sm text-muted-foreground">{scoreMessage}</p>
                 {summary?.counts.total_donors ? (
                   <p className="text-xs text-muted-foreground">
-                    {summary.counts.complete_donors} of {summary.counts.total_donors} donors have
-                    mobile &amp; PAN on file
+                    {t("compliance.donorsComplete", {
+                      complete: summary.counts.complete_donors,
+                      total: summary.counts.total_donors,
+                    })}
                   </p>
                 ) : null}
               </>
@@ -308,14 +319,20 @@ function CompliancePage() {
 
         <Card className="rounded-2xl border-border shadow-soft lg:col-span-2">
           <CardHeader>
-            <CardTitle className="font-display text-lg">Important Alerts</CardTitle>
-            <p className="text-sm text-muted-foreground">What needs your attention</p>
+            <CardTitle className="font-display text-lg">
+              {t("compliance.importantAlerts")}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{t("compliance.alertsSubtitle")}</p>
           </CardHeader>
           <CardContent className="space-y-3">
             {summaryLoading ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">Loading alerts…</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t("compliance.loadingAlerts")}
+              </p>
             ) : summary?.alerts.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">No alerts right now.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t("compliance.noAlerts")}
+              </p>
             ) : (
               summary?.alerts.map((alert) => {
                 const Icon = toneIcon[alert.tone];
@@ -337,7 +354,7 @@ function CompliancePage() {
                       onClick={() => handleAlertAction(alert)}
                       disabled={!alert.filter_key && alert.tone === "success"}
                     >
-                      {isActive ? "Filtered" : alert.action}
+                      {isActive ? t("compliance.filtered") : alert.action}
                     </Button>
                   </div>
                 );
@@ -349,17 +366,15 @@ function CompliancePage() {
 
       <Card className="rounded-2xl border-border shadow-soft">
         <CardHeader>
-          <CardTitle className="font-display text-lg">Donor Management</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Search, filter and fix donor records highlighted by alerts above.
-          </p>
+          <CardTitle className="font-display text-lg">{t("compliance.donorManagement")}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t("compliance.donorMgmtSubtitle")}</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by name"
+                placeholder={t("compliance.searchPlaceholder")}
                 className="rounded-full pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -383,7 +398,7 @@ function CompliancePage() {
           {complianceFilter ? (
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="rounded-full">
-                Alert filter: {complianceFilterLabel(complianceFilter)}
+                {t("compliance.alertFilter", { label: complianceFilterLabel(complianceFilter, t) })}
               </Badge>
               <Button
                 variant="ghost"
@@ -392,33 +407,39 @@ function CompliancePage() {
                 onClick={() => setComplianceFilter(null)}
               >
                 <X className="mr-1 h-3.5 w-3.5" />
-                Clear
+                {t("compliance.clear")}
               </Button>
             </div>
           ) : null}
 
           <div className="overflow-x-auto rounded-xl border border-border">
             {donorsLoading ? (
-              <p className="px-4 py-12 text-center text-sm text-muted-foreground">Loading donors…</p>
+              <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+                {t("compliance.loadingDonors")}
+              </p>
             ) : donors.length === 0 ? (
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
                 {complianceFilter
-                  ? "No donors match this alert filter."
+                  ? t("compliance.noDonorsAlert")
                   : debouncedSearch || filter !== "all"
-                    ? "No donors match your search or filter."
-                    : "No donors yet."}
+                    ? t("compliance.noDonorsSearch")
+                    : t("compliance.noDonors")}
               </p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Donor</th>
-                    <th className="px-4 py-3 font-medium">Contact</th>
-                    <th className="px-4 py-3 font-medium">PAN</th>
-                    <th className="px-4 py-3 font-medium">Donations</th>
-                    <th className="px-4 py-3 font-medium">Last Donation</th>
-                    <th className="px-4 py-3 text-right font-medium">Lifetime</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.donor")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.contact")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.pan")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.donations")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.lastDonation")}</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      {t("dashboard.table.lifetime")}
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      {t("dashboard.table.actions")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -455,7 +476,7 @@ function CompliancePage() {
                             onClick={() => openEdit(d)}
                           >
                             <Pencil className="mr-1 h-3.5 w-3.5" />
-                            Update
+                            {t("compliance.update")}
                           </Button>
                           <Button
                             variant="outline"
@@ -464,7 +485,7 @@ function CompliancePage() {
                             onClick={() => setDeleteTarget(d)}
                           >
                             <Trash2 className="mr-1 h-3.5 w-3.5" />
-                            Delete
+                            {t("compliance.delete")}
                           </Button>
                         </div>
                       </td>
@@ -480,10 +501,10 @@ function CompliancePage() {
       <Dialog open={editDonor != null} onOpenChange={(open) => !open && setEditDonor(null)}>
         <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-lg">
           <DialogHeader className="shrink-0 space-y-1.5 px-6 pb-4 pt-6">
-            <DialogTitle className="font-display">Update Donor</DialogTitle>
+            <DialogTitle className="font-display">{t("compliance.editDialog.title")}</DialogTitle>
             {editDonor && editDonor.donation_count > 1 ? (
               <p className="text-sm text-muted-foreground">
-                Select a donation below to edit its amount, date, and payment mode.
+                {t("compliance.editDialog.selectDonation")}
               </p>
             ) : null}
           </DialogHeader>
@@ -492,122 +513,126 @@ function CompliancePage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="donor-name">Name</Label>
-              <Input
-                id="donor-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="rounded-xl"
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-2">
               <div className="space-y-2">
-                <Label htmlFor="donor-phone">Mobile number</Label>
+                <Label htmlFor="donor-name">{t("compliance.editDialog.name")}</Label>
                 <Input
-                  id="donor-phone"
-                  placeholder="10-digit mobile"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
+                  id="donor-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
                   className="rounded-xl"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="donor-pan">PAN</Label>
-                <Input
-                  id="donor-pan"
-                  placeholder="ABCDE1234F"
-                  value={editPan}
-                  onChange={(e) => setEditPan(e.target.value.toUpperCase())}
-                  className="rounded-xl"
-                />
-              </div>
-            </div>
-            {donorDonations.length > 0 ? (
-              <>
-                {donorDonations.length > 1 ? (
-                  <div className="border-t border-border pt-4">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Donations ({donorDonations.length})
-                    </p>
-                    <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-xl border border-border p-1 sm:max-h-32">
-                      {donorDonations.map((donation) => {
-                        const isSelected = donation.id === selectedDonationId;
-                        return (
-                          <button
-                            key={donation.id}
-                            type="button"
-                            onClick={() => selectDonation(donation)}
-                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                              isSelected
-                                ? "bg-primary/10 ring-1 ring-primary/30"
-                                : "hover:bg-accent"
-                            }`}
-                          >
-                            <span className="font-medium">
-                              {formatDonationDate(donation.date)}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {formatInr(donation.amount)} · {donation.payment_mode}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-                <div className="border-t border-border pt-4">
-                  <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {donorDonations.length > 1 ? "Edit selected donation" : "Donation"}
-                  </p>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="donation-amount">Amount (₹)</Label>
-                      <Input
-                        id="donation-amount"
-                        type="number"
-                        min={1}
-                        placeholder="5000"
-                        value={editAmount}
-                        onChange={(e) => setEditAmount(e.target.value)}
-                        className="rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="donation-date">Date</Label>
-                      <Input
-                        id="donation-date"
-                        type="date"
-                        value={editDate}
-                        onChange={(e) => setEditDate(e.target.value)}
-                        className="rounded-xl"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    <Label htmlFor="donation-mode">Payment mode</Label>
-                    <Select value={editPaymentMode} onValueChange={setEditPaymentMode}>
-                      <SelectTrigger id="donation-mode" className="rounded-xl">
-                        <SelectValue placeholder="Select mode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAYMENT_MODES.map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {mode}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="donor-phone">{t("compliance.editDialog.mobile")}</Label>
+                  <Input
+                    id="donor-phone"
+                    placeholder={t("compliance.editDialog.mobilePlaceholder")}
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="rounded-xl"
+                  />
                 </div>
-              </>
-            ) : null}
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="donor-pan">{t("compliance.editDialog.pan")}</Label>
+                  <Input
+                    id="donor-pan"
+                    placeholder={t("compliance.editDialog.panPlaceholder")}
+                    value={editPan}
+                    onChange={(e) => setEditPan(e.target.value.toUpperCase())}
+                    className="rounded-xl"
+                  />
+                </div>
+              </div>
+              {donorDonations.length > 0 ? (
+                <>
+                  {donorDonations.length > 1 ? (
+                    <div className="border-t border-border pt-4">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("compliance.editDialog.donations", { count: donorDonations.length })}
+                      </p>
+                      <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-xl border border-border p-1 sm:max-h-32">
+                        {donorDonations.map((donation) => {
+                          const isSelected = donation.id === selectedDonationId;
+                          return (
+                            <button
+                              key={donation.id}
+                              type="button"
+                              onClick={() => selectDonation(donation)}
+                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                isSelected
+                                  ? "bg-primary/10 ring-1 ring-primary/30"
+                                  : "hover:bg-accent"
+                              }`}
+                            >
+                              <span className="font-medium">
+                                {formatDonationDate(donation.date)}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {formatInr(donation.amount)} · {donation.payment_mode}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="border-t border-border pt-4">
+                    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {donorDonations.length > 1
+                        ? t("compliance.editDialog.editSelected")
+                        : t("compliance.editDialog.donation")}
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="donation-amount">{t("compliance.editDialog.amount")}</Label>
+                        <Input
+                          id="donation-amount"
+                          type="number"
+                          min={1}
+                          placeholder={t("compliance.editDialog.amountPlaceholder")}
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(e.target.value)}
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="donation-date">{t("compliance.editDialog.date")}</Label>
+                        <Input
+                          id="donation-date"
+                          type="date"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          className="rounded-xl"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="donation-mode">
+                        {t("compliance.editDialog.paymentMode")}
+                      </Label>
+                      <Select value={editPaymentMode} onValueChange={setEditPaymentMode}>
+                        <SelectTrigger id="donation-mode" className="rounded-xl">
+                          <SelectValue placeholder={t("compliance.editDialog.selectMode")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAYMENT_MODES.map((mode) => (
+                            <SelectItem key={mode} value={mode}>
+                              {mode}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
           )}
           <DialogFooter className="shrink-0 border-t border-border px-6 pb-6 pt-4">
             <Button variant="outline" className="rounded-full" onClick={() => setEditDonor(null)}>
-              Cancel
+              {t("compliance.editDialog.cancel")}
             </Button>
             <Button
               className="rounded-full"
@@ -615,23 +640,31 @@ function CompliancePage() {
               onClick={() => void handleSave()}
             >
               {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-              Save changes
+              {t("compliance.editDialog.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete donor?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete <strong>{deleteTarget?.name}</strong> and all associated
-              donation records. This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("compliance.deleteDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription
+              dangerouslySetInnerHTML={{
+                __html: t("compliance.deleteDialog.description", {
+                  name: deleteTarget?.name ?? "",
+                }),
+              }}
+            />
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full">
+              {t("compliance.deleteDialog.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleting}
@@ -640,7 +673,9 @@ function CompliancePage() {
                 void handleDelete();
               }}
             >
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting
+                ? t("compliance.deleteDialog.deleting")
+                : t("compliance.deleteDialog.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

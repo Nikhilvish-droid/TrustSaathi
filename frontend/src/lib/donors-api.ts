@@ -5,10 +5,7 @@ export type DonorCategory = "Repeat" | "New" | "Corporate" | "Trust";
 export type DonorFilter = "all" | "repeat" | "new" | "corporate" | "trust";
 
 export type ComplianceFilter =
-  | "missing_phone"
-  | "missing_pan"
-  | "pending_review"
-  | `draft_missing_${string}`;
+  "missing_phone" | "missing_pan" | "pending_review" | `draft_missing_${string}`;
 
 export type DonorRecord = {
   id: string;

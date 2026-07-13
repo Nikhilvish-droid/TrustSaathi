@@ -3,10 +3,7 @@ import { apiJson } from "./api-client";
 export type ComplianceAlertTone = "danger" | "warning" | "success";
 
 export type ComplianceFilterKey =
-  | "missing_phone"
-  | "missing_pan"
-  | "pending_review"
-  | `draft_missing_${string}`;
+  "missing_phone" | "missing_pan" | "pending_review" | `draft_missing_${string}`;
 
 export type ComplianceAlert = {
   id: string;

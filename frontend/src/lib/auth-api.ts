@@ -95,7 +95,10 @@ export async function updateProfile(payload: {
   user_name: string;
   email: string;
   password?: string;
-}): Promise<{ message: string; user: AuthUser & { organization_name?: string; reg_number?: string } }> {
+}): Promise<{
+  message: string;
+  user: AuthUser & { organization_name?: string; reg_number?: string };
+}> {
   return apiJson("/api/auth/update", {
     method: "PUT",
     body: JSON.stringify(payload),

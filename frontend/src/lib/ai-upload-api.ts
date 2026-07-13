@@ -31,10 +31,10 @@ export function rowNeedsAttention(
     }
   }
 
-  if (fieldEmpty(row, 'donor_name')) flags.donor_name = true;
-  if (fieldEmpty(row, 'amount')) flags.amount = true;
-  if (fieldEmpty(row, 'date')) flags.date = true;
-  if (fieldEmpty(row, 'payment_mode')) flags.payment_mode = true;
+  if (fieldEmpty(row, "donor_name")) flags.donor_name = true;
+  if (fieldEmpty(row, "amount")) flags.amount = true;
+  if (fieldEmpty(row, "date")) flags.date = true;
+  if (fieldEmpty(row, "payment_mode")) flags.payment_mode = true;
 
   if (row._low_confidence || (row.confidence_score ?? 1) < LOW_CONFIDENCE_THRESHOLD) {
     flags.donor_name = true;
@@ -46,15 +46,15 @@ export function rowNeedsAttention(
 
 function fieldEmpty(row: ReviewDonationRow, field: (typeof CRITICAL_FIELDS)[number]): boolean {
   const v = row[field];
-  if (field === 'amount') return v == null || Number(v) <= 0;
-  return v == null || String(v).trim() === '';
+  if (field === "amount") return v == null || Number(v) <= 0;
+  return v == null || String(v).trim() === "";
 }
 
 export function validateRowsForSubmit(rows: ReviewDonationRow[]): string | null {
   for (let i = 0; i < rows.length; i += 1) {
     for (const field of CRITICAL_FIELDS) {
       if (fieldEmpty(rows[i], field)) {
-        return `Row ${i + 1}: ${field.replace('_', ' ')} is required before submitting.`;
+        return `Row ${i + 1}: ${field.replace("_", " ")} is required before submitting.`;
       }
     }
   }
@@ -74,10 +74,7 @@ export function toUploadRows(rows: ReviewDonationRow[]) {
     const missing = computeMissingFields(row);
     return {
       donor_name: row.donor_name?.trim() || null,
-      amount:
-        row.amount == null || Number(row.amount) <= 0
-          ? null
-          : Number(row.amount),
+      amount: row.amount == null || Number(row.amount) <= 0 ? null : Number(row.amount),
       date: row.date || null,
       payment_mode: row.payment_mode?.trim() || null,
       confidence_score: row.confidence_score,
@@ -87,14 +84,17 @@ export function toUploadRows(rows: ReviewDonationRow[]) {
 }
 
 /** Stage 1 — upload file to AI via backend proxy POST /api/extract */
-export async function extractDocument(file: File, organizationId?: string): Promise<ExtractResponse> {
+export async function extractDocument(
+  file: File,
+  organizationId?: string,
+): Promise<ExtractResponse> {
   const orgId = organizationId ?? getOrganizationId();
   const formData = new FormData();
-  formData.append('file', file);
-  formData.append('organization_id', orgId);
+  formData.append("file", file);
+  formData.append("organization_id", orgId);
 
-  const response = await apiFetch('/api/extract', {
-    method: 'POST',
+  const response = await apiFetch("/api/extract", {
+    method: "POST",
     body: formData,
   });
 
@@ -105,14 +105,14 @@ export async function extractDocument(file: File, organizationId?: string): Prom
   } catch {
     throw new ApiError(
       response.status,
-      raw.trimStart().startsWith('<')
-        ? 'Server returned HTML instead of JSON. Check VITE_API_URL points to your Render backend.'
-        : 'Server returned an invalid JSON response.',
+      raw.trimStart().startsWith("<")
+        ? "Server returned HTML instead of JSON. Check VITE_API_URL points to your Render backend."
+        : "Server returned an invalid JSON response.",
     );
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, result.error ?? 'Extraction failed.');
+    throw new ApiError(response.status, result.error ?? "Extraction failed.");
   }
 
   return result;
@@ -120,12 +120,12 @@ export async function extractDocument(file: File, organizationId?: string): Prom
 
 /** Stage 3 — persist reviewed data POST /api/ai/upload */
 export async function uploadReviewedData(payload: UploadPayload): Promise<UploadResponse> {
-  const result = await apiJson<UploadResponse | ActionRequiredResponse>('/api/ai/upload', {
-    method: 'POST',
+  const result = await apiJson<UploadResponse | ActionRequiredResponse>("/api/ai/upload", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 
-  if ('status' in result && result.status === 'action_required') {
+  if ("status" in result && result.status === "action_required") {
     throw new ApiError(400, result.message);
   }
 
@@ -140,10 +140,10 @@ export function buildUploadPayload(
   return {
     organization_id: getOrganizationId(),
     document_type: documentType,
-    record_status: options.draft ? 'draft' : 'completed',
+    record_status: options.draft ? "draft" : "completed",
     is_frontend_corrected: true,
     manual_review_required: options.draft,
-    status: 'success',
+    status: "success",
     data: toUploadRows(rows),
   };
 }

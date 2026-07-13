@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-shell";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import {
   fetchDonors,
   donorInitial,
@@ -19,23 +20,26 @@ import { formatDonationDate, formatInr } from "@/lib/donations-api";
 import { exportDonorsPdf } from "@/lib/export/donors-export";
 
 export const Route = createFileRoute("/dashboard/donors")({
-  head: () => ({ meta: [{ title: "Donor Management — TrustSaathi" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Donor Management — TrustSaathi" }, { name: "robots", content: "noindex" }],
+  }),
   component: DonorsPage,
 });
 
-const FILTERS: { label: string; value: DonorFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Repeat", value: "repeat" },
-  { label: "New", value: "new" },
-  { label: "Corporate", value: "corporate" },
-  { label: "Trust", value: "trust" },
-];
-
 function DonorsPage() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<DonorFilter>("all");
   const [exporting, setExporting] = useState(false);
+
+  const FILTERS: { label: string; value: DonorFilter }[] = [
+    { label: t("donors.filters.all"), value: "all" },
+    { label: t("donors.filters.repeat"), value: "repeat" },
+    { label: t("donors.filters.new"), value: "new" },
+    { label: t("donors.filters.corporate"), value: "corporate" },
+    { label: t("donors.filters.trust"), value: "trust" },
+  ];
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -53,25 +57,29 @@ function DonorsPage() {
   const statCards = useMemo(() => {
     if (!stats) {
       return [
-        { l: "Total Donors", v: "—" },
-        { l: "Repeat Donors", v: "—" },
-        { l: "New This Month", v: "—" },
-        { l: "Total Raised", v: "—" },
+        { l: t("donors.totalDonors"), v: "—" },
+        { l: t("donors.repeatDonors"), v: "—" },
+        { l: t("donors.newThisMonth"), v: "—" },
+        { l: t("donors.totalRaised"), v: "—" },
       ];
     }
     return [
-      { l: "Total Donors", v: stats.total_donors.toLocaleString("en-IN") },
-      { l: "Repeat Donors", v: stats.repeat_donors.toLocaleString("en-IN") },
-      { l: "New This Month", v: stats.new_this_month.toLocaleString("en-IN") },
-      { l: "Total Raised", v: formatInr(stats.lifetime_value), hint: "All-time · your trust" },
+      { l: t("donors.totalDonors"), v: stats.total_donors.toLocaleString("en-IN") },
+      { l: t("donors.repeatDonors"), v: stats.repeat_donors.toLocaleString("en-IN") },
+      { l: t("donors.newThisMonth"), v: stats.new_this_month.toLocaleString("en-IN") },
+      {
+        l: t("donors.totalRaised"),
+        v: formatInr(stats.lifetime_value),
+        hint: t("donors.lifetimeHint"),
+      },
     ];
-  }, [stats]);
+  }, [stats, t]);
 
   const handleExport = async () => {
     setExporting(true);
     try {
       const payload = await exportDonorsPdf(debouncedSearch, filter);
-      toast.success(`PDF downloaded · ${payload.rows.length} donation${payload.rows.length === 1 ? "" : "s"}`);
+      toast.success(t("donors.pdfDownloaded", { count: payload.rows.length }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to export PDF.");
     } finally {
@@ -82,8 +90,8 @@ function DonorsPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Donor Management"
-        subtitle="Search, filter and manage every donor in one place."
+        title={t("donors.pageTitle")}
+        subtitle={t("donors.pageSubtitle")}
         icon={Users}
         action={
           <>
@@ -98,11 +106,11 @@ function DonorsPage() {
               ) : (
                 <Download className="mr-1.5 h-4 w-4" />
               )}
-              Export
+              {t("donors.export")}
             </Button>
             <Button asChild className="rounded-full">
               <Link to="/dashboard/donations">
-                <UserPlus className="mr-1.5 h-4 w-4" /> Add Donor
+                <UserPlus className="mr-1.5 h-4 w-4" /> {t("donors.addDonor")}
               </Link>
             </Button>
           </>
@@ -129,7 +137,7 @@ function DonorsPage() {
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by name"
+                placeholder={t("donors.searchPlaceholder")}
                 className="rounded-full pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -152,21 +160,27 @@ function DonorsPage() {
 
           <div className="overflow-x-auto rounded-xl border border-border">
             {loading ? (
-              <p className="px-4 py-12 text-center text-sm text-muted-foreground">Loading donors…</p>
+              <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+                {t("donors.loadingDonors")}
+              </p>
             ) : donors.length === 0 ? (
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-                {debouncedSearch || filter !== "all" ? "No donors match your search or filter." : "No donors yet."}
+                {debouncedSearch || filter !== "all"
+                  ? t("donors.noDonorsFiltered")
+                  : t("donors.noDonors")}
               </p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Donor</th>
-                    <th className="px-4 py-3 font-medium">Contact</th>
-                    <th className="px-4 py-3 font-medium">PAN</th>
-                    <th className="px-4 py-3 font-medium">Donations</th>
-                    <th className="px-4 py-3 font-medium">Last Donation</th>
-                    <th className="px-4 py-3 text-right font-medium">Lifetime</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.donor")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.contact")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.pan")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.donations")}</th>
+                    <th className="px-4 py-3 font-medium">{t("dashboard.table.lastDonation")}</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      {t("dashboard.table.lifetime")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
