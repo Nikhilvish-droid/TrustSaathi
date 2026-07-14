@@ -60,7 +60,7 @@ export function ChatWidget() {
     <>
       {/* Floating Button */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6">
           {tooltipVisible && (
             <div className="animate-in fade-in slide-in-from-bottom-2 rounded-xl bg-background border border-border px-3 py-2 shadow-lg text-xs font-medium text-foreground">
               Ask TrustSaathi AI ✨
@@ -70,7 +70,7 @@ export function ChatWidget() {
             onClick={toggleChat}
             onMouseEnter={() => setTooltipVisible(true)}
             onMouseLeave={() => setTooltipVisible(false)}
-            className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+            className="group relative flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 sm:h-14 sm:w-14"
             aria-label="Open AI Chat"
           >
             <span className="absolute inset-0 rounded-full animate-ping bg-primary/30" />
@@ -83,10 +83,10 @@ export function ChatWidget() {
       {isOpen && (
         <div
           className={cn(
-            "fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden rounded-3xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl transition-all duration-300",
-            minimized ? "h-[60px]" : "h-[min(650px,calc(100vh-100px))]",
+            "fixed bottom-4 right-4 z-50 flex flex-col overflow-hidden rounded-3xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl transition-all duration-300 sm:bottom-6 sm:right-6",
+            minimized ? "h-[60px]" : "h-[min(520px,calc(100vh-120px))]",
           )}
-          style={{ width: "min(420px, calc(100vw - 48px))" }}
+          style={{ width: "min(380px, calc(100vw - 32px))" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3">
@@ -136,13 +136,13 @@ export function ChatWidget() {
                 className="flex-1 overflow-y-auto py-4 space-y-4 scroll-smooth"
               >
                 {messages.length === 0 && (
-                  <div className="px-4 py-6 text-center">
-                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                      <Bot className="h-7 w-7 text-primary" />
+                  <div className="px-4 py-4 text-center">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                      <Bot className="h-6 w-6 text-primary" />
                     </div>
-                    <h3 className="text-lg font-semibold">Namaste 🙏</h3>
+                    <h3 className="text-base font-semibold">Namaste 🙏</h3>
                     <p className="mt-1 text-sm font-medium text-foreground">I'm TrustSaathi AI</p>
-                    <p className="mt-2 text-xs text-muted-foreground">I can help you with</p>
+                    <p className="mt-1.5 text-xs text-muted-foreground">I can help you with</p>
                     <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                       {[
                         "💰 Donations",
