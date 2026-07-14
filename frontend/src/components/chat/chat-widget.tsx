@@ -84,9 +84,9 @@ export function ChatWidget() {
         <div
           className={cn(
             "fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden rounded-3xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl transition-all duration-300",
-            minimized ? "h-[60px]" : "h-[650px]",
+            minimized ? "h-[60px]" : "h-[min(650px,calc(100vh-100px))]",
           )}
-          style={{ width: "420px", maxWidth: "calc(100vw - 32px)" }}
+          style={{ width: "min(420px, calc(100vw - 48px))" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border bg-background/80 backdrop-blur-sm px-4 py-3">
