@@ -564,5 +564,142 @@
     "search": "Search",
     "noData": "No data available",
     "dash": "—"
+  },
+  "ledger": {
+    "pageTitle": "Accounting & Ledger",
+    "pageSubtitle": "Manage your Trust's finances and track cash flow.",
+    "totalIncome": "Total Income",
+    "totalExpenses": "Total Expenses",
+    "currentBalance": "Current Balance",
+    "totalTransactions": "Total Transactions",
+    "searchPlaceholder": "Search by donor, payee or description…",
+    "filterByDate": "Filter by date",
+    "exportCsv": "Export CSV",
+    "addTransaction": "Add Transaction",
+    "noTransactions": "No transactions match your filters.",
+    "table": {
+      "date": "Date",
+      "name": "Name",
+      "category": "Category",
+      "type": "Type",
+      "paymentMode": "Payment Mode",
+      "amount": "Amount"
+    },
+    "dialogTitle": "Add Transaction",
+    "dialogDescription": "Record a new income or expense entry to your ledger.",
+    "transactionType": "Transaction Type",
+    "income": "Income",
+    "expense": "Expense",
+    "date": "Date",
+    "amount": "Amount (₹)",
+    "category": "Category",
+    "selectCategory": "Select category",
+    "paymentMode": "Payment Mode",
+    "selectMode": "Select mode",
+    "donorName": "Donor Name",
+    "payeeName": "Payee Name",
+    "optional": "Optional",
+    "description": "Description",
+    "descriptionPlaceholder": "Any extra notes…",
+    "saveTransaction": "Save Transaction",
+    "badgeIncome": "IN+",
+    "badgeExpense": "OUT−",
+    "csv": {
+      "date": "Date",
+      "name": "Name",
+      "category": "Category",
+      "type": "Type",
+      "paymentMode": "Payment Mode",
+      "amount": "Amount",
+      "description": "Description"
+    },
+    "validation": {
+      "amountInvalid": "Enter a valid amount",
+      "categoryRequired": "Choose a category",
+      "paymentModeRequired": "Choose a payment mode"
+    },
+    "toast": {
+      "saved": "Transaction saved",
+      "saveFailed": "Failed to save transaction.",
+      "loadFailed": "Failed to load transactions."
+    }
+  },
+  "expenses": {
+    "pageTitle": "Income & Expenses",
+    "pageSubtitle": "Track every rupee that comes in and goes out.",
+    "addIncome": "Add Income",
+    "addExpense": "Add Expense",
+    "periods": {
+      "today": "Today",
+      "month": "This Month",
+      "year": "This Year",
+      "lifetime": "Lifetime"
+    },
+    "timeFilters": {
+      "today": "Today",
+      "month": "Month",
+      "year": "Year",
+      "lifetime": "Lifetime"
+    },
+    "summary": {
+      "income": "Income ({{period}})",
+      "expenses": "Expenses ({{period}})",
+      "net": "Net ({{period}})"
+    },
+    "table": {
+      "date": "Date",
+      "category": "Category",
+      "type": "Type",
+      "note": "Note",
+      "amount": "Amount",
+      "actions": "Actions"
+    },
+    "emptyState": "No transactions for {{period}}.",
+    "type": {
+      "income": "Income",
+      "expense": "Expense"
+    },
+    "dialog": {
+      "add": "Add",
+      "edit": "Edit",
+      "type": "Type",
+      "date": "Date",
+      "category": "Category",
+      "categoryPlaceholder": "e.g. Annadaan, Donations",
+      "note": "Note",
+      "notePlaceholder": "Short description",
+      "amount": "Amount (₹)",
+      "saveChanges": "Save changes",
+      "saveType": "Save {{type}}"
+    },
+    "delete": {
+      "title": "Delete entry?",
+      "description": "This will permanently delete the {{type}} entry for <strong>{{category}}</strong> ({{amount}})."
+    },
+    "validation": {
+      "dateRequired": "Date is required.",
+      "categoryRequired": "Category is required.",
+      "amountInvalid": "Enter an amount greater than 0."
+    },
+    "toast": {
+      "saveFailed": "Failed to save entry.",
+      "deleted": "Entry deleted.",
+      "deleteFailed": "Failed to delete entry."
+    }
+  },
+  "assets": {
+    "pageTitle": "Assets & Inventory",
+    "pageSubtitle": "Track land, buildings, gold, vehicles, furniture and temple inventory.",
+    "comingSoon": "Asset register coming up"
+  },
+  "cash": {
+    "pageTitle": "Cash & Vehicle Tracking",
+    "pageSubtitle": "Cash movement, collection routes, vehicle logs and fuel expenses.",
+    "comingSoon": "Cash & vehicle module coming up"
+  },
+  "notifications": {
+    "pageTitle": "Notifications",
+    "pageSubtitle": "All important alerts in one place.",
+    "comingSoon": "Notification inbox coming up"
   }
 }

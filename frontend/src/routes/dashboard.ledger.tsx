@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   CalendarIcon,
@@ -86,6 +87,7 @@ const inr = (n: number) =>
   }).format(n);
 
 function LedgerPage() {
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<DateRange | undefined>();
@@ -97,13 +99,13 @@ function LedgerPage() {
         const response = await fetchLedger();
         setTransactions(response.transactions);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to load transactions.";
+        const message = error instanceof Error ? error.message : t("ledger.toast.loadFailed");
         toast.error(message);
       }
     };
 
     loadTransactions();
-  }, []);
+  }, [t]);
 
   // ---------- Derived ----------
   const filtered = useMemo(() => {
@@ -132,11 +134,19 @@ function LedgerPage() {
   const addTransaction = async (tx: Omit<Transaction, "id">) => {
     const response = await createLedgerTransaction(tx);
     setTransactions((prev) => [response.transaction, ...prev]);
-    toast.success("Transaction saved");
+    toast.success(t("ledger.toast.saved"));
   };
 
   const exportCsv = () => {
-    const header = ["Date", "Name", "Category", "Type", "Payment Mode", "Amount", "Description"];
+    const header = [
+      t("ledger.csv.date"),
+      t("ledger.csv.name"),
+      t("ledger.csv.category"),
+      t("ledger.csv.type"),
+      t("ledger.csv.paymentMode"),
+      t("ledger.csv.amount"),
+      t("ledger.csv.description"),
+    ];
     const rows = filtered.map((t) => [
       t.date,
       t.name,
@@ -161,15 +171,15 @@ function LedgerPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Accounting & Ledger"
-        subtitle="Manage your Trust's finances and track cash flow."
+        title={t("ledger.pageTitle")}
+        subtitle={t("ledger.pageSubtitle")}
         icon={BookOpen}
       />
 
       {/* Metrics */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Total Income"
+          label={t("ledger.totalIncome")}
           value={inr(metrics.income)}
           icon={<TrendingUp className="h-5 w-5" />}
           trend={
@@ -180,7 +190,7 @@ function LedgerPage() {
           tone="text-success"
         />
         <MetricCard
-          label="Total Expenses"
+          label={t("ledger.totalExpenses")}
           value={inr(metrics.expense)}
           icon={<TrendingDown className="h-5 w-5" />}
           trend={
@@ -191,13 +201,13 @@ function LedgerPage() {
           tone="text-destructive"
         />
         <MetricCard
-          label="Current Balance"
+          label={t("ledger.currentBalance")}
           value={inr(metrics.balance)}
           icon={<Wallet className="h-5 w-5" />}
           tone="text-primary"
         />
         <MetricCard
-          label="Total Transactions"
+          label={t("ledger.totalTransactions")}
           value={String(metrics.count)}
           icon={<FileText className="h-5 w-5" />}
           tone="text-foreground"
@@ -210,7 +220,7 @@ function LedgerPage() {
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by donor, payee or description…"
+              placeholder={t("ledger.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="rounded-full pl-9"
@@ -231,7 +241,7 @@ function LedgerPage() {
                     ? range.to
                       ? `${format(range.from, "d LLL")} – ${format(range.to, "d LLL")}`
                       : format(range.from, "d LLL yyyy")
-                    : "Filter by date"}
+                    : t("ledger.filterByDate")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -245,17 +255,17 @@ function LedgerPage() {
                 {range && (
                   <div className="flex justify-end border-t border-border p-2">
                     <Button variant="ghost" size="sm" onClick={() => setRange(undefined)}>
-                      Clear
+                      {t("common.cancel")}
                     </Button>
                   </div>
                 )}
               </PopoverContent>
             </Popover>
             <Button variant="outline" className="rounded-full" onClick={exportCsv}>
-              <Download className="mr-1.5 h-4 w-4" /> Export CSV
+              <Download className="mr-1.5 h-4 w-4" /> {t("ledger.exportCsv")}
             </Button>
             <Button className="rounded-full" onClick={() => setOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" /> Add Transaction
+              <Plus className="mr-1.5 h-4 w-4" /> {t("ledger.addTransaction")}
             </Button>
           </div>
         </CardContent>
@@ -268,12 +278,12 @@ function LedgerPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Date</th>
-                  <th className="px-5 py-3 font-medium">Name</th>
-                  <th className="px-5 py-3 font-medium">Category</th>
-                  <th className="px-5 py-3 font-medium">Type</th>
-                  <th className="px-5 py-3 font-medium">Payment Mode</th>
-                  <th className="px-5 py-3 text-right font-medium">Amount</th>
+                  <th className="px-5 py-3 font-medium">{t("ledger.table.date")}</th>
+                  <th className="px-5 py-3 font-medium">{t("ledger.table.name")}</th>
+                  <th className="px-5 py-3 font-medium">{t("ledger.table.category")}</th>
+                  <th className="px-5 py-3 font-medium">{t("ledger.table.type")}</th>
+                  <th className="px-5 py-3 font-medium">{t("ledger.table.paymentMode")}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t("ledger.table.amount")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -312,7 +322,7 @@ function LedgerPage() {
                       colSpan={6}
                       className="px-5 py-12 text-center text-sm text-muted-foreground"
                     >
-                      No transactions match your filters.
+                      {t("ledger.noTransactions")}
                     </td>
                   </tr>
                 )}
@@ -358,16 +368,17 @@ function MetricCard({
 }
 
 function TypeBadge({ type }: { type: TxType }) {
+  const { t } = useTranslation();
   if (type === "Income") {
     return (
       <Badge className="rounded-full bg-success/15 text-success hover:bg-success/20 border-0">
-        <ArrowUpRight className="mr-1 h-3 w-3" /> IN+
+        <ArrowUpRight className="mr-1 h-3 w-3" /> {t("ledger.badgeIncome")}
       </Badge>
     );
   }
   return (
     <Badge className="rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 border-0">
-      <ArrowDownRight className="mr-1 h-3 w-3" /> OUT−
+      <ArrowDownRight className="mr-1 h-3 w-3" /> {t("ledger.badgeExpense")}
     </Badge>
   );
 }
@@ -382,6 +393,7 @@ function AddTransactionDialog({
   onOpenChange: (v: boolean) => void;
   onSubmit: (tx: Omit<Transaction, "id">) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [type, setType] = useState<TxType>("Income");
   const [date, setDate] = useState<Date>(new Date());
   const [amount, setAmount] = useState<string>("");
@@ -404,9 +416,9 @@ function AddTransactionDialog({
 
   const handleSave = async () => {
     const amt = Number(amount);
-    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
-    if (!category) return toast.error("Choose a category");
-    if (!mode) return toast.error("Choose a payment mode");
+    if (!amt || amt <= 0) return toast.error(t("ledger.validation.amountInvalid"));
+    if (!category) return toast.error(t("ledger.validation.categoryRequired"));
+    if (!mode) return toast.error(t("ledger.validation.paymentModeRequired"));
 
     try {
       await onSubmit({
@@ -421,7 +433,7 @@ function AddTransactionDialog({
       reset();
       onOpenChange(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save transaction.";
+      const message = error instanceof Error ? error.message : t("ledger.toast.saveFailed");
       toast.error(message);
     }
   };
@@ -436,16 +448,16 @@ function AddTransactionDialog({
     >
       <DialogContent className="max-w-lg rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">Add Transaction</DialogTitle>
+          <DialogTitle className="font-display text-xl">{t("ledger.dialogTitle")}</DialogTitle>
           <DialogDescription>
-            Record a new income or expense entry to your ledger.
+            {t("ledger.dialogDescription")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Type */}
           <div className="space-y-2">
-            <Label>Transaction Type</Label>
+            <Label>{t("ledger.transactionType")}</Label>
             <RadioGroup
               value={type}
               onValueChange={(v) => {
@@ -454,24 +466,24 @@ function AddTransactionDialog({
               }}
               className="grid grid-cols-2 gap-2"
             >
-              {(["Income", "Expense"] as const).map((t) => (
+              {(["Income", "Expense"] as const).map((t_) => (
                 <label
-                  key={t}
+                  key={t_}
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium transition",
-                    type === t &&
-                      (t === "Income"
+                    type === t_ &&
+                      (t_ === "Income"
                         ? "border-success bg-success/10 text-success"
                         : "border-destructive bg-destructive/10 text-destructive"),
                   )}
                 >
-                  <RadioGroupItem value={t} className="sr-only" />
-                  {t === "Income" ? (
+                  <RadioGroupItem value={t_} className="sr-only" />
+                  {t_ === "Income" ? (
                     <ArrowUpRight className="h-4 w-4" />
                   ) : (
                     <ArrowDownRight className="h-4 w-4" />
                   )}
-                  {t}
+                  {t_ === "Income" ? t("ledger.income") : t("ledger.expense")}
                 </label>
               ))}
             </RadioGroup>
@@ -480,7 +492,7 @@ function AddTransactionDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Date */}
             <div className="space-y-1.5">
-              <Label>Date</Label>
+              <Label>{t("ledger.date")}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start rounded-xl font-normal">
@@ -502,7 +514,7 @@ function AddTransactionDialog({
 
             {/* Amount */}
             <div className="space-y-1.5">
-              <Label>Amount (₹)</Label>
+              <Label>{t("ledger.amount")}</Label>
               <Input
                 type="number"
                 min={0}
@@ -515,10 +527,10 @@ function AddTransactionDialog({
 
             {/* Category */}
             <div className="space-y-1.5">
-              <Label>Category</Label>
+              <Label>{t("ledger.category")}</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={t("ledger.selectCategory")} />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
@@ -532,10 +544,10 @@ function AddTransactionDialog({
 
             {/* Payment Mode */}
             <div className="space-y-1.5">
-              <Label>Payment Mode</Label>
+              <Label>{t("ledger.paymentMode")}</Label>
               <Select value={mode} onValueChange={(v) => setMode(v as PaymentMode)}>
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Select mode" />
+                  <SelectValue placeholder={t("ledger.selectMode")} />
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_MODES.map((m) => (
@@ -551,8 +563,8 @@ function AddTransactionDialog({
           {/* Name */}
           <div className="space-y-1.5">
             <Label>
-              {type === "Income" ? "Donor Name" : "Payee Name"}{" "}
-              <span className="text-muted-foreground font-normal">(Optional)</span>
+              {type === "Income" ? t("ledger.donorName") : t("ledger.payeeName")}{" "}
+              <span className="text-muted-foreground font-normal">({t("ledger.optional")})</span>
             </Label>
             <Input
               placeholder={type === "Income" ? "e.g. Anil Mehta" : "e.g. MSEB"}
@@ -564,9 +576,9 @@ function AddTransactionDialog({
 
           {/* Description */}
           <div className="space-y-1.5">
-            <Label>Description</Label>
+            <Label>{t("ledger.description")}</Label>
             <Textarea
-              placeholder="Any extra notes…"
+              placeholder={t("ledger.descriptionPlaceholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="min-h-[80px] rounded-xl"
@@ -576,10 +588,10 @@ function AddTransactionDialog({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button className="rounded-full" onClick={handleSave}>
-            Save Transaction
+            {t("ledger.saveTransaction")}
           </Button>
         </DialogFooter>
       </DialogContent>

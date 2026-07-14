@@ -558,5 +558,142 @@
     "search": "शोधा",
     "noData": "कोणताही डेटा उपलब्ध नाही",
     "dash": "—"
+  },
+  "ledger": {
+    "pageTitle": "खाता बही",
+    "pageSubtitle": "तुमच्या ट्रस्टच्या वित्ताचे व्यवस्थापन करा आणि रोख प्रवाह ट्रॅक करा.",
+    "totalIncome": "एकूण उत्पन्न",
+    "totalExpenses": "एकूण खर्च",
+    "currentBalance": "सध्याचा शिल्लक",
+    "totalTransactions": "एकूण व्यवहार",
+    "searchPlaceholder": "दानदाता, पेमेंटकर्ता किंवा वर्णनाने शोधा…",
+    "filterByDate": "तारीखनुसार फिल्टर करा",
+    "exportCsv": "CSV निर्यात",
+    "addTransaction": "व्यवहार जोडा",
+    "noTransactions": "तुमच्या फिल्टरशी कोणताही व्यवहार जुळत नाही.",
+    "table": {
+      "date": "तारीख",
+      "name": "नाव",
+      "category": "श्रेणी",
+      "type": "प्रकार",
+      "paymentMode": "पेमेंट मोड",
+      "amount": "रक्कम"
+    },
+    "dialogTitle": "व्यवहार जोडा",
+    "dialogDescription": "तुमच्या खाता बहीत एक नवीन उत्पन्न किंवा खर्च नोंध नोंदवा.",
+    "transactionType": "व्यवहार प्रकार",
+    "income": "उत्पन्न",
+    "expense": "खर्च",
+    "date": "तारीख",
+    "amount": "रक्कम (₹)",
+    "category": "श्रेणी",
+    "selectCategory": "श्रेणी निवडा",
+    "paymentMode": "पेमेंट मोड",
+    "selectMode": "मोड निवडा",
+    "donorName": "दानदात्याचे नाव",
+    "payeeName": "पेमेंटकर्त्याचे नाव",
+    "optional": "पर्यायी",
+    "description": "वर्णन",
+    "descriptionPlaceholder": "कोणत्याही अतिरिक्त टिप्पण्या…",
+    "saveTransaction": "व्यवहार सेव्ह करा",
+    "badgeIncome": "IN+",
+    "badgeExpense": "OUT−",
+    "csv": {
+      "date": "तारीख",
+      "name": "नाव",
+      "category": "श्रेणी",
+      "type": "प्रकार",
+      "paymentMode": "पेमेंट मोड",
+      "amount": "रक्कम",
+      "description": "वर्णन"
+    },
+    "validation": {
+      "amountInvalid": "वैध रक्कम प्रविष्ट करा",
+      "categoryRequired": "एक श्रेणी निवडा",
+      "paymentModeRequired": "एक पेमेंट मोड निवडा"
+    },
+    "toast": {
+      "saved": "व्यवहार सेव्ह केला",
+      "saveFailed": "व्यवहार सेव्ह करण्यात अयशस्वी.",
+      "loadFailed": "व्यवहार लोड करण्यात अयशस्वी."
+    }
+  },
+  "expenses": {
+    "pageTitle": "उत्पन्न आणि खर्च",
+    "pageSubtitle": "दर एका रुपयाचा मोलमाप करा जो येतो आणि जातो.",
+    "addIncome": "उत्पन्न जोडा",
+    "addExpense": "खर्च जोडा",
+    "periods": {
+      "today": "आज",
+      "month": "या महिन्यात",
+      "year": "या वर्षी",
+      "lifetime": "आजीवन"
+    },
+    "timeFilters": {
+      "today": "आज",
+      "month": "महिना",
+      "year": "वर्ष",
+      "lifetime": "आजीवन"
+    },
+    "summary": {
+      "income": "उत्पन्न ({{period}})",
+      "expenses": "खर्च ({{period}})",
+      "net": "शुद्ध ({{period}})"
+    },
+    "table": {
+      "date": "तारीख",
+      "category": "श्रेणी",
+      "type": "प्रकार",
+      "note": "टिप्पणी",
+      "amount": "रक्कम",
+      "actions": "क्रिया"
+    },
+    "emptyState": "{{period}} साठी कोणतेही व्यवहार नाही.",
+    "type": {
+      "income": "उत्पन्न",
+      "expense": "खर्च"
+    },
+    "dialog": {
+      "add": "जोडा",
+      "edit": "संपादित करा",
+      "type": "प्रकार",
+      "date": "तारीख",
+      "category": "श्रेणी",
+      "categoryPlaceholder": "उदा. अन्नदान, दान",
+      "note": "टिप्पणी",
+      "notePlaceholder": "छोटे वर्णन",
+      "amount": "रक्कम (₹)",
+      "saveChanges": "बदल सेव्ह करा",
+      "saveType": "{{type}} सेव्ह करा"
+    },
+    "delete": {
+      "title": "नोंध हटवायची?",
+      "description": "हे {{type}} नोंध कायमचे हटवेल <strong>{{category}}</strong> ({{amount}})."
+    },
+    "validation": {
+      "dateRequired": "तारीख आवश्यक आहे.",
+      "categoryRequired": "श्रेणी आवश्यक आहे.",
+      "amountInvalid": "शून्यापेक्षा जास्त रक्कम प्रविष्ट करा."
+    },
+    "toast": {
+      "saveFailed": "नोंध सेव्ह करण्यात अयशस्वी.",
+      "deleted": "नोंध हटवली.",
+      "deleteFailed": "नोंध हटवण्यात अयशस्वी."
+    }
+  },
+  "assets": {
+    "pageTitle": "मालमत्ता आणि इन्व्हेंटरी",
+    "pageSubtitle": "जमीन, इमारती, सोने, वाहने, फर्निचर आणि मंदिर इन्व्हेंटरी ट्रॅक करा.",
+    "comingSoon": "मालमत्ता नोंदी लवकरच येत आहे"
+  },
+  "cash": {
+    "pageTitle": "रोख आणि वाहन ट्रॅकिंग",
+    "pageSubtitle": "रोख प्रवाह, गोळा मार्ग, वाहन लॉग आणि इंधन खर्च.",
+    "comingSoon": "रोख आणि वाहन मॉड्यूल लवकरच येत आहे"
+  },
+  "notifications": {
+    "pageTitle": "सूचना",
+    "pageSubtitle": "सर्व महत्त्वाच्या सूचना एकाच ठिकाणी.",
+    "comingSoon": "सूचना इनबॉक्स लवकरच येत आहे"
   }
 }

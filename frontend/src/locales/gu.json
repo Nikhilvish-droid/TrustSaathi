@@ -564,5 +564,142 @@
     "search": "શોધો",
     "noData": "કોઈ ડેટા ઉપલબ્ધ નથી",
     "dash": "—"
+  },
+  "ledger": {
+    "pageTitle": "ખાતા બહી",
+    "pageSubtitle": "તમારા ટ્રસ્ટના નાણાકીય વ્યવહારોનું સંચાલન કરો અને રોકડ પ્રવાહ ટ્રૅક કરો.",
+    "totalIncome": "કુલ આવક",
+    "totalExpenses": "કુલ ખર્ચા",
+    "currentBalance": "વર્તમાન બેલેન્સ",
+    "totalTransactions": "કુલ વ્યવહારો",
+    "searchPlaceholder": "દાનદાતા, ચુકવણીકર્તા અથવા વિગત દ્વારા શોધો…",
+    "filterByDate": "તારીખ દ્વારા ફિલ્ટર કરો",
+    "exportCsv": "CSV નિકાસ",
+    "addTransaction": "વ્યવહાર ઉમેરો",
+    "noTransactions": "તમારા ફિલ્ટર સાથે કોઈ વ્યવહાર મેળ ખાતો નથી.",
+    "table": {
+      "date": "તારીખ",
+      "name": "નામ",
+      "category": "શ્રેણી",
+      "type": "પ્રકાર",
+      "paymentMode": "ચુકવણી મોડ",
+      "amount": "રકમ"
+    },
+    "dialogTitle": "વ્યવહાર ઉમેરો",
+    "dialogDescription": "તમારી ખાતા બહીમાં એક નવી આવક અથવા ખર્ચ નોંધ દાખલ કરો.",
+    "transactionType": "વ્યવહાર પ્રકાર",
+    "income": "આવક",
+    "expense": "ખર્ચ",
+    "date": "તારીખ",
+    "amount": "રકમ (₹)",
+    "category": "શ્રેણી",
+    "selectCategory": "શ્રેણી પસંદ કરો",
+    "paymentMode": "ચુકવણી મોડ",
+    "selectMode": "મોડ પસંદ કરો",
+    "donorName": "દાનદાતાનું નામ",
+    "payeeName": "ચુકવણીકર્તાનું નામ",
+    "optional": "વૈકલ્પિક",
+    "description": "વિગત",
+    "descriptionPlaceholder": "કોઈ વધારાની નોંધો…",
+    "saveTransaction": "વ્યવહાર સેવ કરો",
+    "badgeIncome": "IN+",
+    "badgeExpense": "OUT−",
+    "csv": {
+      "date": "તારીખ",
+      "name": "નામ",
+      "category": "શ્રેણી",
+      "type": "પ્રકાર",
+      "paymentMode": "ચુકવણી મોડ",
+      "amount": "રકમ",
+      "description": "વિગત"
+    },
+    "validation": {
+      "amountInvalid": "એક માન્ય રકમ દાખલ કરો",
+      "categoryRequired": "એક શ્રેણી પસંદ કરો",
+      "paymentModeRequired": "એક ચુકવણી મોડ પસંદ કરો"
+    },
+    "toast": {
+      "saved": "વ્યવહાર સેવ થયો",
+      "saveFailed": "વ્યવહાર સેવ કરવામાં નિષ્ફળ.",
+      "loadFailed": "વ્યવહારો લોડ કરવામાં નિષ્ફળ."
+    }
+  },
+  "expenses": {
+    "pageTitle": "આવક અને ખર્ચા",
+    "pageSubtitle": "દરેક રૂપિયાને ટ્રૅક કરો જે આવે છે અને જાય છે.",
+    "addIncome": "આવક ઉમેરો",
+    "addExpense": "ખર્ચ ઉમેરો",
+    "periods": {
+      "today": "આજે",
+      "month": "આ મહિનો",
+      "year": "આ વર્ષ",
+      "lifetime": "આજીવન"
+    },
+    "timeFilters": {
+      "today": "આજે",
+      "month": "મહિનો",
+      "year": "વર્ષ",
+      "lifetime": "આજીવન"
+    },
+    "summary": {
+      "income": "આવક ({{period}})",
+      "expenses": "ખર્ચા ({{period}})",
+      "net": "ચોખ્ખું ({{period}})"
+    },
+    "table": {
+      "date": "તારીખ",
+      "category": "શ્રેણી",
+      "type": "પ્રકાર",
+      "note": "નોંધ",
+      "amount": "રકમ",
+      "actions": "ક્રિયાઓ"
+    },
+    "emptyState": "{{period}} માટે કોઈ વ્યવહાર નથી.",
+    "type": {
+      "income": "આવક",
+      "expense": "ખર્ચ"
+    },
+    "dialog": {
+      "add": "ઉમેરો",
+      "edit": "સંપાદિત કરો",
+      "type": "પ્રકાર",
+      "date": "તારીખ",
+      "category": "શ્રેણી",
+      "categoryPlaceholder": "જેમ કે અન્નદાન, દાન",
+      "note": "નોંધ",
+      "notePlaceholder": "ટૂંકું વિવરણ",
+      "amount": "રકમ (₹)",
+      "saveChanges": "ફેરફારો સેવ કરો",
+      "saveType": "{{type}} સેવ કરો"
+    },
+    "delete": {
+      "title": "નોંધ દૂર કરો?",
+      "description": "આ {{type}} નોંધને કાયમ માટે દૂર કરશે <strong>{{category}}</strong> ({{amount}})."
+    },
+    "validation": {
+      "dateRequired": "તારીખ જરૂરી છે.",
+      "categoryRequired": "શ્રેણી જરૂરી છે.",
+      "amountInvalid": "શૂન્ય કરતાં વધુ રકમ દાખલ કરો."
+    },
+    "toast": {
+      "saveFailed": "નોંધ સેવ કરવામાં નિષ્ફળ.",
+      "deleted": "નોંધ દૂર થઈ.",
+      "deleteFailed": "નોંધ દૂર કરવામાં નિષ્ફળ."
+    }
+  },
+  "assets": {
+    "pageTitle": "મિલકત અને ઇન્વેન્ટરી",
+    "pageSubtitle": "જમીન, ઇમારતો, સોનું, વાહનો, ફર્નિચર અને મંદિર ઇન્વેન્ટરી ટ્રૅક કરો.",
+    "comingSoon": "મિલકત રજિસ્ટર ટૂંકમાં આવી રહ્યું છે"
+  },
+  "cash": {
+    "pageTitle": "રોકડ અને વાહન ટ્રૅકિંગ",
+    "pageSubtitle": "રોકડ પ્રવાહ, સંગ્રહ માર્ગો, વાહન લૉગ અને ઇંધણ ખર્ચ.",
+    "comingSoon": "રોકડ અને વાહન મોડ્યુલ ટૂંકમાં આવી રહ્યું છે"
+  },
+  "notifications": {
+    "pageTitle": "સૂચનાઓ",
+    "pageSubtitle": "બધા મહત્વપૂર્ણ ચેતવણીઓ એક જગ્યાએ.",
+    "comingSoon": "સૂચના ઇનબૉક્સ ટૂંકમાં આવી રહ્યું છે"
   }
 }

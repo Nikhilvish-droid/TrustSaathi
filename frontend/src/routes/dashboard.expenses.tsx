@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Receipt, Plus, TrendingUp, TrendingDown, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -119,16 +120,16 @@ function filterTransactions(transactions: Transaction[], timeFilter: TimeFilter,
   });
 }
 
-function filterPeriodLabel(timeFilter: TimeFilter): string {
+function filterPeriodLabel(timeFilter: TimeFilter, t: (key: string) => string): string {
   switch (timeFilter) {
     case "Today":
-      return "Today";
+      return t("expenses.periods.today");
     case "Month":
-      return "This Month";
+      return t("expenses.periods.month");
     case "Year":
-      return "This Year";
+      return t("expenses.periods.year");
     case "Lifetime":
-      return "Lifetime";
+      return t("expenses.periods.lifetime");
   }
 }
 
@@ -137,6 +138,7 @@ function emptyForm(): EntryForm {
 }
 
 function ExpensesPage() {
+  const { t } = useTranslation();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("Lifetime");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<TransactionType>("Income");
@@ -174,7 +176,7 @@ function ExpensesPage() {
     return { totalIncome: income, totalExpenses: expenses, net: income - expenses };
   }, [filteredTransactions]);
 
-  const periodLabel = filterPeriodLabel(timeFilter);
+  const periodLabel = filterPeriodLabel(timeFilter, t);
 
   const openModal = (type: TransactionType) => {
     setEditingId(null);
@@ -205,16 +207,16 @@ function ExpensesPage() {
     e.preventDefault();
 
     if (!form.date) {
-      toast.error("Date is required.");
+      toast.error(t("expenses.validation.dateRequired"));
       return;
     }
     if (!form.category.trim()) {
-      toast.error("Category is required.");
+      toast.error(t("expenses.validation.categoryRequired"));
       return;
     }
     const amount = Number(form.amount);
     if (!form.amount || Number.isNaN(amount) || amount <= 0) {
-      toast.error("Enter an amount greater than 0.");
+      toast.error(t("expenses.validation.amountInvalid"));
       return;
     }
 
@@ -240,7 +242,7 @@ function ExpensesPage() {
         toast.success(res.message);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save entry.");
+      toast.error(err instanceof Error ? err.message : t("expenses.toast.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -253,10 +255,10 @@ function ExpensesPage() {
     try {
       await deleteIncomeExpense(deleteTarget.id);
       queryClient.invalidateQueries({ queryKey: ["incomeExpenses"] });
-      toast.success("Entry deleted.");
+      toast.success(t("expenses.toast.deleted"));
       setDeleteTarget(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete entry.");
+      toast.error(err instanceof Error ? err.message : t("expenses.toast.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -265,8 +267,8 @@ function ExpensesPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Income & Expenses"
-        subtitle="Track every rupee that comes in and goes out."
+        title={t("expenses.pageTitle")}
+        subtitle={t("expenses.pageSubtitle")}
         icon={Receipt}
         action={
           <>
@@ -275,13 +277,13 @@ function ExpensesPage() {
               variant="outline"
               onClick={() => openModal("Income")}
             >
-              <Plus className="mr-1.5 h-4 w-4" /> Add Income
+              <Plus className="mr-1.5 h-4 w-4" /> {t("expenses.addIncome")}
             </Button>
             <Button
               className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => openModal("Expense")}
             >
-              <Plus className="mr-1.5 h-4 w-4" /> Add Expense
+              <Plus className="mr-1.5 h-4 w-4" /> {t("expenses.addExpense")}
             </Button>
           </>
         }
@@ -299,7 +301,7 @@ function ExpensesPage() {
                 : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             }`}
           >
-            {filter}
+            {t(`expenses.timeFilters.${filter.toLowerCase()}`)}
           </button>
         ))}
       </div>
@@ -307,19 +309,19 @@ function ExpensesPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
-            l: `Income (${periodLabel})`,
+            l: t("expenses.summary.income", { period: periodLabel }),
             v: formatInr(totalIncome),
             icon: TrendingUp,
             tone: "text-success",
           },
           {
-            l: `Expenses (${periodLabel})`,
+            l: t("expenses.summary.expenses", { period: periodLabel }),
             v: formatInr(totalExpenses),
             icon: TrendingDown,
             tone: "text-destructive",
           },
           {
-            l: `Net (${periodLabel})`,
+            l: t("expenses.summary.net", { period: periodLabel }),
             v: formatInr(net),
             icon: net >= 0 ? TrendingUp : TrendingDown,
             tone: "text-primary",
@@ -345,12 +347,12 @@ function ExpensesPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Date</th>
-                  <th className="px-5 py-3 font-medium">Category</th>
-                  <th className="px-5 py-3 font-medium">Type</th>
-                  <th className="px-5 py-3 font-medium">Note</th>
-                  <th className="px-5 py-3 text-right font-medium">Amount</th>
-                  <th className="px-5 py-3 text-right font-medium">Actions</th>
+                  <th className="px-5 py-3 font-medium">{t("expenses.table.date")}</th>
+                  <th className="px-5 py-3 font-medium">{t("expenses.table.category")}</th>
+                  <th className="px-5 py-3 font-medium">{t("expenses.table.type")}</th>
+                  <th className="px-5 py-3 font-medium">{t("expenses.table.note")}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t("expenses.table.amount")}</th>
+                  <th className="px-5 py-3 text-right font-medium">{t("expenses.table.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -363,7 +365,7 @@ function ExpensesPage() {
                 ) : filteredTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
-                      No transactions for {periodLabel.toLowerCase()}.
+                      {t("expenses.emptyState", { period: periodLabel.toLowerCase() })}
                     </td>
                   </tr>
                 ) : (
@@ -385,7 +387,7 @@ function ExpensesPage() {
                           variant="secondary"
                           className={`rounded-full ${r.type === "Income" ? "text-success" : "text-destructive"}`}
                         >
-                          {r.type}
+                          {t(`expenses.type.${r.type.toLowerCase()}`)}
                         </Badge>
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">{r.note || "—"}</td>
@@ -405,7 +407,7 @@ function ExpensesPage() {
                             onClick={() => openEdit(r)}
                           >
                             <Pencil className="mr-1 h-3.5 w-3.5" />
-                            Edit
+                            {t("common.edit")}
                           </Button>
                           <Button
                             variant="outline"
@@ -414,7 +416,7 @@ function ExpensesPage() {
                             onClick={() => setDeleteTarget(r)}
                           >
                             <Trash2 className="mr-1 h-3.5 w-3.5" />
-                            Delete
+                            {t("common.delete")}
                           </Button>
                         </div>
                       </td>
@@ -431,26 +433,26 @@ function ExpensesPage() {
         <DialogContent className="rounded-2xl sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">
-              {editingId ? "Edit" : "Add"} {modalType}
+              {editingId ? t("expenses.dialog.edit") : t("expenses.dialog.add")} {t(`expenses.type.${modalType.toLowerCase()}`)}
             </DialogTitle>
           </DialogHeader>
           <form className="grid gap-4" onSubmit={handleSubmit}>
             {editingId && (
               <div className="grid gap-2">
-                <Label htmlFor="entry-type">Type</Label>
+                <Label htmlFor="entry-type">{t("expenses.dialog.type")}</Label>
                 <Select value={modalType} onValueChange={(v) => setModalType(v as TransactionType)}>
                   <SelectTrigger id="entry-type" className="rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Income">Income</SelectItem>
-                    <SelectItem value="Expense">Expense</SelectItem>
+                    <SelectItem value="Income">{t("expenses.type.income")}</SelectItem>
+                    <SelectItem value="Expense">{t("expenses.type.expense")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div className="grid gap-2">
-              <Label htmlFor="entry-date">Date</Label>
+              <Label htmlFor="entry-date">{t("expenses.dialog.date")}</Label>
               <Input
                 id="entry-date"
                 type="date"
@@ -460,11 +462,11 @@ function ExpensesPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="entry-category">Category</Label>
+              <Label htmlFor="entry-category">{t("expenses.dialog.category")}</Label>
               <Input
                 id="entry-category"
                 list="expense-categories"
-                placeholder="e.g. Annadaan, Donations"
+                placeholder={t("expenses.dialog.categoryPlaceholder")}
                 className="rounded-xl"
                 value={form.category}
                 onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
@@ -476,17 +478,17 @@ function ExpensesPage() {
               </datalist>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="entry-note">Note</Label>
+              <Label htmlFor="entry-note">{t("expenses.dialog.note")}</Label>
               <Input
                 id="entry-note"
-                placeholder="Short description"
+                placeholder={t("expenses.dialog.notePlaceholder")}
                 className="rounded-xl"
                 value={form.note}
                 onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="entry-amount">Amount (₹)</Label>
+              <Label htmlFor="entry-amount">{t("expenses.dialog.amount")}</Label>
               <Input
                 id="entry-amount"
                 type="number"
@@ -500,7 +502,7 @@ function ExpensesPage() {
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" className="rounded-full" onClick={closeModal}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 type="submit"
@@ -514,9 +516,9 @@ function ExpensesPage() {
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : editingId ? (
-                  "Save changes"
+                  t("expenses.dialog.saveChanges")
                 ) : (
-                  `Save ${modalType}`
+                  t("expenses.dialog.saveType", { type: t(`expenses.type.${modalType.toLowerCase()}`) })
                 )}
               </Button>
             </DialogFooter>
@@ -530,15 +532,17 @@ function ExpensesPage() {
       >
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete entry?</AlertDialogTitle>
+            <AlertDialogTitle>{t("expenses.delete.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the {deleteTarget?.type?.toLowerCase()} entry for{" "}
-              <strong>{deleteTarget?.category}</strong> (
-              {deleteTarget ? formatInr(deleteTarget.amount) : ""}).
+              {t("expenses.delete.description", {
+                type: deleteTarget?.type?.toLowerCase() ?? "",
+                category: deleteTarget?.category ?? "",
+                amount: deleteTarget ? formatInr(deleteTarget.amount) : "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full">{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleting}
@@ -547,7 +551,7 @@ function ExpensesPage() {
                 void handleDelete();
               }}
             >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

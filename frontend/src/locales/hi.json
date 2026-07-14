@@ -558,5 +558,142 @@
     "search": "खोजें",
     "noData": "कोई डेटा उपलब्ध नहीं",
     "dash": "—"
+  },
+  "ledger": {
+    "pageTitle": "खाता बही",
+    "pageSubtitle": "अपने ट्रस्ट के वित्त का प्रबंधन करें और नकदी प्रवाह को ट्रैक करें।",
+    "totalIncome": "कुल आय",
+    "totalExpenses": "कुल खर्चे",
+    "currentBalance": "वर्तमान शेष",
+    "totalTransactions": "कुल लेनदेन",
+    "searchPlaceholder": "दानदाता, भुगतानकर्ता या विवरण से खोजें…",
+    "filterByDate": "तिथि से फ़िल्टर करें",
+    "exportCsv": "CSV निर्यात",
+    "addTransaction": "लेनदेन जोड़ें",
+    "noTransactions": "आपके फ़िल्टर से कोई लेनदेन मेल नहीं खाता।",
+    "table": {
+      "date": "तिथि",
+      "name": "नाम",
+      "category": "श्रेणी",
+      "type": "प्रकार",
+      "paymentMode": "भुगतान मोड",
+      "amount": "राशि"
+    },
+    "dialogTitle": "लेनदेन जोड़ें",
+    "dialogDescription": "अपनी खाता बही में एक नई आय या खर्च प्रविष्टि दर्ज करें।",
+    "transactionType": "लेनदेन प्रकार",
+    "income": "आय",
+    "expense": "खर्च",
+    "date": "तिथि",
+    "amount": "राशि (₹)",
+    "category": "श्रेणी",
+    "selectCategory": "श्रेणी चुनें",
+    "paymentMode": "भुगतान मोड",
+    "selectMode": "मोड चुनें",
+    "donorName": "दानदाता का नाम",
+    "payeeName": "भुगतानकर्ता का नाम",
+    "optional": "वैकल्पिक",
+    "description": "विवरण",
+    "descriptionPlaceholder": "कोई अतिरिक्त नोट्स…",
+    "saveTransaction": "लेनदेन सेव करें",
+    "badgeIncome": "IN+",
+    "badgeExpense": "OUT−",
+    "csv": {
+      "date": "तिथि",
+      "name": "नाम",
+      "category": "श्रेणी",
+      "type": "प्रकार",
+      "paymentMode": "भुगतान मोड",
+      "amount": "राशि",
+      "description": "विवरण"
+    },
+    "validation": {
+      "amountInvalid": "एक मान्य राशि दर्ज करें",
+      "categoryRequired": "एक श्रेणी चुनें",
+      "paymentModeRequired": "एक भुगतान मोड चुनें"
+    },
+    "toast": {
+      "saved": "लेनदेन सेव किया",
+      "saveFailed": "लेनदेन सेव करने में विफल।",
+      "loadFailed": "लेनदेन लोड करने में विफल।"
+    }
+  },
+  "expenses": {
+    "pageTitle": "आय और खर्चे",
+    "pageSubtitle": "हर रुपये को ट्रैक करें जो आता है और जाता है।",
+    "addIncome": "आय जोड़ें",
+    "addExpense": "खर्च जोड़ें",
+    "periods": {
+      "today": "आज",
+      "month": "इस महीने",
+      "year": "इस वर्ष",
+      "lifetime": "आजीवन"
+    },
+    "timeFilters": {
+      "today": "आज",
+      "month": "महीना",
+      "year": "वर्ष",
+      "lifetime": "आजीवन"
+    },
+    "summary": {
+      "income": "आय ({{period}})",
+      "expenses": "खर्चे ({{period}})",
+      "net": "शुद्ध ({{period}})"
+    },
+    "table": {
+      "date": "तिथि",
+      "category": "श्रेणी",
+      "type": "प्रकार",
+      "note": "नोट",
+      "amount": "राशि",
+      "actions": "कार्य"
+    },
+    "emptyState": "{{period}} के लिए कोई लेनदेन नहीं।",
+    "type": {
+      "income": "आय",
+      "expense": "खर्च"
+    },
+    "dialog": {
+      "add": "जोड़ें",
+      "edit": "संपादित करें",
+      "type": "प्रकार",
+      "date": "तिथि",
+      "category": "श्रेणी",
+      "categoryPlaceholder": "जैसे अन्नदान, दान",
+      "note": "नोट",
+      "notePlaceholder": "संक्षिप्त विवरण",
+      "amount": "राशि (₹)",
+      "saveChanges": "परिवर्तन सेव करें",
+      "saveType": "{{type}} सेव करें"
+    },
+    "delete": {
+      "title": "प्रविष्टि हटाएं?",
+      "description": "यह {{type}} प्रविष्टि को स्थायी रूप से हटा देगा <strong>{{category}}</strong> ({{amount}})।"
+    },
+    "validation": {
+      "dateRequired": "तिथि आवश्यक है।",
+      "categoryRequired": "श्रेणी आवश्यक है।",
+      "amountInvalid": "शून्य से अधिक राशि दर्ज करें।"
+    },
+    "toast": {
+      "saveFailed": "प्रविष्टि सेव करने में विफल।",
+      "deleted": "प्रविष्टि हटाई गई।",
+      "deleteFailed": "प्रविष्टि हटाने में विफल।"
+    }
+  },
+  "assets": {
+    "pageTitle": "संपत्ति और इन्वेंट्री",
+    "pageSubtitle": "भूमि, भवन, सोना, वाहन, फर्नीचर और मंदिर इन्वेंट्री को ट्रैक करें।",
+    "comingSoon": "संपत्ति रजिस्टर जल्द आ रहा है"
+  },
+  "cash": {
+    "pageTitle": "नकद और वाहन ट्रैकिंग",
+    "pageSubtitle": "नकद प्रवाह, संग्रह मार्ग, वाहन लॉग और ईंधन खर्च।",
+    "comingSoon": "नकद और वाहन मॉड्यूल जल्द आ रहा है"
+  },
+  "notifications": {
+    "pageTitle": "सूचनाएँ",
+    "pageSubtitle": "सभी महत्वपूर्ण अलर्ट एक जगह।",
+    "comingSoon": "सूचना इनबॉक्स जल्द आ रहा है"
   }
 }
